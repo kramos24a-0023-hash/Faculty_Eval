@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1749a7" />
+    <meta name="description" content="OLOPSC faculty evaluation workspace dashboard." />
+    <title>Faculty Evaluation · OLOPSC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles/tokens.css" />
+    <link rel="stylesheet" href="styles/base.css" />
+    <link rel="stylesheet" href="styles/layout.css" />
+    <link rel="stylesheet" href="styles/components.css" />
+    <link rel="stylesheet" href="styles/responsive.css" />
+    <script defer src="scripts/modules/notifications.js"></script>
+    <script defer src="scripts/modules/modal.js"></script>
+    <script defer src="scripts/modules/navigation.js"></script>
+    <script defer src="scripts/modules/search.js"></script>
+    <script defer src="scripts/app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Workspace navigation">
+        <a class="brand" href="#dashboard" aria-label="OLOPSC Faculty Evaluation home">
+          <span class="brand__mark" aria-hidden="true">◇</span>
+          <span class="brand__name">
+            <strong>OLOPSC</strong>
+            <small>FACULTY EVALUATION<br />SYSTEM</small>
+          </span>
+        </a>
+
+        <button class="workspace-switch" type="button">
+          <span class="workspace-switch__icon" aria-hidden="true">◈</span>
+          <span class="workspace-switch__copy">
+            <strong>Admin Workspace</strong>
+            <small>Institution management</small>
+          </span>
+          <span class="workspace-switch__chevron" aria-hidden="true">›</span>
+        </button>
+
+        <nav class="primary-nav" aria-label="Primary">
+          <p class="nav-label">Workspace</p>
+          <button class="nav-item is-active" type="button" data-page="Dashboard" aria-current="page">
+            <span class="nav-item__icon" aria-hidden="true">▦</span>Dashboard
+          </button>
+          <button class="nav-item" type="button" data-page="Programs"><span class="nav-item__icon" aria-hidden="true">◈</span>Programs</button>
+          <button class="nav-item" type="button" data-page="Courses"><span class="nav-item__icon" aria-hidden="true">▤</span>Courses</button>
+          <button class="nav-item" type="button" data-page="Sections"><span class="nav-item__icon" aria-hidden="true">⊞</span>Sections</button>
+          <button class="nav-item" type="button" data-page="Teachers"><span class="nav-item__icon" aria-hidden="true">♙</span>Teachers</button>
+          <button class="nav-item nav-item--multiline" type="button" data-page="Teacher-Course Assignments">
+            <span class="nav-item__icon" aria-hidden="true">♧</span><span>Teacher-Course<br />Assignments</span>
+          </button>
+          <button class="nav-item" type="button" data-page="Students"><span class="nav-item__icon" aria-hidden="true">♧</span>Students</button>
+
+          <p class="nav-label nav-label--spaced">Evaluation &amp; Insights</p>
+          <button class="nav-item" type="button" data-page="Evaluation Criteria"><span class="nav-item__icon" aria-hidden="true">▣</span>Evaluation Criteria</button>
+          <button class="nav-item" type="button" data-page="Evaluation Periods">
+            <span class="nav-item__icon" aria-hidden="true">▦</span>Evaluation Periods<span class="nav-badge">2</span>
+          </button>
+          <button class="nav-item" type="button" data-page="Evaluation Results"><span class="nav-item__icon" aria-hidden="true">▥</span>Evaluation Results</button>
+          <button class="nav-item" type="button" data-page="Reports"><span class="nav-item__icon" aria-hidden="true">▤</span>Reports</button>
+
+          <p class="nav-label nav-label--spaced">Administration</p>
+          <button class="nav-item" type="button" data-page="User Management"><span class="nav-item__icon" aria-hidden="true">◇</span>User Management</button>
+        </nav>
+
+        <div class="sidebar__bottom">
+          <a class="help-card" href="#help">
+            <span class="help-card__icon" aria-hidden="true">?</span>
+            <span><strong>Need a hand?</strong><small>Visit the help center</small></span>
+            <span class="help-card__arrow" aria-hidden="true">↗</span>
+          </a>
+          <div class="user-profile">
+            <span class="avatar avatar--sidebar" aria-hidden="true">MC</span>
+            <span class="user-profile__copy"><strong>Maria Clara</strong><small>System Administrator</small></span>
+            <button class="icon-button icon-button--sidebar" type="button" aria-label="Profile menu">···</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area" id="main-content">
+        <header class="topbar">
+          <button class="mobile-menu" id="menuToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+          <div class="breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong id="crumb">Dashboard</strong></div>
+          <div class="top-actions">
+            <label class="search-box">
+              <span class="search-box__icon" aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="Search anything..." aria-label="Search workspace" />
+              <kbd>Ctrl K</kbd>
+            </label>
+            <button class="icon-button notification-button" type="button" id="notificationButton" aria-label="Notifications">♧<span class="notification-button__dot"></span></button>
+            <span class="avatar" aria-label="Maria Clara">MC</span>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="page-heading" aria-labelledby="page-title">
+            <div>
+              <p class="eyebrow"><span class="eyebrow__dot"></span>MONDAY, OCTOBER 14, 2024 <span>·</span> FIRST SEMESTER</p>
+              <h1 id="page-title">Good morning, Maria <span class="heading__spark" aria-hidden="true">✳</span></h1>
+              <p class="page-heading__description">Here’s what’s happening across your faculty evaluation workspace.</p>
+            </div>
+            <button class="button button--primary" type="button" data-modal="period">＋ <span>New evaluation period</span></button>
+          </section>
+
+          <section class="metric-grid" aria-label="Evaluation overview">
+            <article class="metric-card">
+              <div class="metric-card__top"><span>Total teachers</span><span class="metric-icon metric-icon--blue" aria-hidden="true">♙</span></div>
+              <p class="metric-card__value">128 <span class="trend">↗ 8.2%</span></p>
+              <div class="metric-card__footer"><span>vs. last semester</span><span class="sparkline sparkline--teachers" aria-label="Teacher count trend"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__top"><span>Eligible students</span><span class="metric-icon metric-icon--white" aria-hidden="true">♧</span></div>
+              <p class="metric-card__value">2,458 <span class="trend">↗ 4.6%</span></p>
+              <div class="metric-card__footer"><span>Across 3 programs</span><span class="sparkline sparkline--students" aria-label="Eligible student trend"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__top"><span>Submissions received</span><span class="metric-icon metric-icon--white" aria-hidden="true">✓</span></div>
+              <p class="metric-card__value">2,079 <span class="metric-card__total">/ 2,458</span></p>
+              <div class="progress-track" role="progressbar" aria-label="Evaluation participation" aria-valuenow="84.6" aria-valuemin="0" aria-valuemax="100"><span class="progress-track__fill progress-track__fill--85"></span></div>
+              <div class="metric-card__footer"><span>84.6% participation</span><span class="trend">↗ 12.3%</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__top"><span>Participation target</span><span class="metric-icon metric-icon--white" aria-hidden="true">◎</span></div>
+              <p class="metric-card__value">90<span class="metric-card__percent">%</span><span class="metric-card__caption">Target</span></p>
+              <div class="metric-note"><span aria-hidden="true">◷</span> Almost there! Our target is 90%</div>
+            </article>
+          </section>
+
+          <section class="overview-grid" aria-label="Evaluation activity">
+            <article class="panel periods-panel">
+              <div class="panel-heading">
+                <div><h2>Evaluation periods</h2><p>Manage your active and upcoming evaluations</p></div>
+                <button class="text-link" type="button" data-page="Evaluation Periods">View all <span aria-hidden="true">→</span></button>
+              </div>
+              <div class="period-row">
+                <div class="date-tile date-tile--active"><strong>14</strong><span>OCT</span></div>
+                <div class="period-row__body">
+                  <div class="period-row__title"><strong>Midterm Evaluation</strong><span class="status status--active">Active</span></div>
+                  <p>1st Semester · AY 2024–2025</p>
+                  <small>▦ &nbsp; Oct 14 – Oct 31, 2024 &nbsp;·&nbsp; All programs</small>
+                  <div class="progress-caption"><span>Evaluation progress</span><strong>84.6%</strong></div>
+                  <div class="progress-track" role="progressbar" aria-label="Midterm evaluation progress" aria-valuenow="84.6" aria-valuemin="0" aria-valuemax="100"><span class="progress-track__fill progress-track__fill--85"></span></div>
+                  <div class="period-row__meta"><span>◷ &nbsp;7 days remaining</span><small>2,079 / 2,458 students</small></div>
+                </div>
+                <button class="row-action" type="button" aria-label="Open midterm evaluation details">›</button>
+              </div>
+              <div class="period-row period-row--upcoming">
+                <div class="date-tile"><strong>02</strong><span>DEC</span></div>
+                <div class="period-row__body">
+                  <div class="period-row__title"><strong>Final Evaluation</strong><span class="status status--upcoming">Upcoming</span></div>
+                  <p>Dec 02 – Dec 16, 2024 · All programs</p>
+                </div>
+                <button class="row-action" type="button" aria-label="Open final evaluation details">›</button>
+              </div>
+            </article>
+
+            <article class="panel activity-panel">
+              <div class="panel-heading">
+                <div><h2>Recent activity</h2><p>The latest updates in your workspace</p></div>
+                <span class="live-indicator"><i></i> Live</span>
+              </div>
+              <div class="activity-list">
+                <article class="activity-item">
+                  <span class="activity-item__icon" aria-hidden="true">♙</span>
+                  <div><strong>New teacher added</strong><p>Prof. Daniel Reyes was added to BSIT.</p><small>12 minutes ago</small></div>
+                </article>
+                <article class="activity-item">
+                  <span class="activity-item__icon activity-item__icon--green" aria-hidden="true">▦</span>
+                  <div><strong>Evaluation period opened</strong><p>Midterm Evaluation is now active.</p><small>1 hour ago</small></div>
+                </article>
+                <article class="activity-item">
+                  <span class="activity-item__icon activity-item__icon--gold" aria-hidden="true">▣</span>
+                  <div><strong>Evaluation criteria updated</strong><p>Teaching effectiveness criteria revised.</p><small>2 hours ago</small></div>
+                </article>
+              </div>
+            </article>
+          </section>
+
+          <section class="panel participation-panel" aria-labelledby="participation-title">
+            <div class="panel-heading">
+              <div><h2 id="participation-title">Program participation</h2><p>See how each academic program is progressing</p></div>
+              <button class="text-link" type="button" data-page="Reports">View full report <span aria-hidden="true">→</span></button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th scope="col">Program</th><th scope="col">Eligible students</th><th scope="col">Participation</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><div class="program-cell"><span class="program-cell__icon" aria-hidden="true">▤</span><span><strong>Computer Science</strong><small>BSCS</small></span></div></td>
+                    <td>248</td><td><div class="table-progress"><span class="table-progress__track"><i class="table-progress__fill table-progress__fill--92"></i></span><small>92%</small></div></td>
+                    <td><span class="status status--active">On track</span></td><td><button class="icon-button table-action" type="button" aria-label="Computer Science actions">···</button></td>
+                  </tr>
+                  <tr>
+                    <td><div class="program-cell"><span class="program-cell__icon" aria-hidden="true">▤</span><span><strong>Information Technology</strong><small>BSIT</small></span></div></td>
+                    <td>386</td><td><div class="table-progress"><span class="table-progress__track"><i class="table-progress__fill table-progress__fill--85"></i></span><small>85%</small></div></td>
+                    <td><span class="status status--active">On track</span></td><td><button class="icon-button table-action" type="button" aria-label="Information Technology actions">···</button></td>
+                  </tr>
+                  <tr>
+                    <td><div class="program-cell"><span class="program-cell__icon" aria-hidden="true">▤</span><span><strong>Business Administration</strong><small>BSBA</small></span></div></td>
+                    <td>312</td><td><div class="table-progress"><span class="table-progress__track"><i class="table-progress__fill table-progress__fill--78"></i></span><small>78%</small></div></td>
+                    <td><span class="status status--progress">In progress</span></td><td><button class="icon-button table-action" type="button" aria-label="Business Administration actions">···</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="quick-actions" aria-label="Quick actions">
+            <strong>Quick actions</strong>
+            <button type="button" data-page="Teachers"><span aria-hidden="true">♙</span>Add teacher <span class="quick-actions__plus" aria-hidden="true">＋</span></button>
+            <button type="button" data-page="Courses"><span aria-hidden="true">▤</span>Create course <span class="quick-actions__plus" aria-hidden="true">＋</span></button>
+            <button type="button" data-page="Evaluation Periods"><span aria-hidden="true">▦</span>Open evaluation period <span class="quick-actions__plus" aria-hidden="true">＋</span></button>
+          </section>
+
+          <footer class="page-footer">
+            <span>© 2024 OLOPSC. Empowering better teaching.</span>
+            <span><i class="page-footer__status"></i>All systems operational <b>·</b> <a href="#help">Help &amp; support →</a></span>
+          </footer>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDescription">
+        <button class="modal__close" type="button" data-modal-close aria-label="Close dialog">×</button>
+        <span class="modal__icon" aria-hidden="true">＋</span>
+        <h2 id="modalTitle">Create evaluation period</h2>
+        <p id="modalDescription">Set up a new evaluation cycle for your programs.</p>
+        <form id="modalForm">
+          <div class="form-field"><label for="periodName">Period name</label><input id="periodName" name="name" placeholder="e.g. Final Evaluation" required /></div>
+          <div class="form-grid">
+            <div class="form-field"><label for="semester">Semester</label><select id="semester" name="semester"><option>1st Semester</option><option>2nd Semester</option><option>Summer</option></select></div>
+            <div class="form-field"><label for="schoolYear">School year</label><input id="schoolYear" name="year" value="2024–2025" /></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-field"><label for="startDate">Start date</label><input id="startDate" type="date" name="start" value="2024-12-02" /></div>
+            <div class="form-field"><label for="endDate">End date</label><input id="endDate" type="date" name="end" value="2024-12-16" /></div>
+          </div>
+          <button class="button button--primary modal__submit" type="submit">Create period <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
+
