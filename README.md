@@ -1,54 +1,30 @@
-# Faculty Evaluation
+# OLOPSC Faculty Evaluation
 
-Responsive front-end prototype for the OLOPSC faculty evaluation workspace.
+The faculty evaluation app is built with Next.js App Router, React, and TypeScript. It includes administrator results, student evaluation, and professor comment views.
 
-## Run
+The first screen is a school-account sign-in page branded for OLOPSC. It accepts only `@olopsc.edu.ph` email addresses; there are no browser-only sample credentials.
 
-Open `index.html` in a modern browser. For a local HTTP preview, run `node serve.mjs` from this directory and visit `http://127.0.0.1:4173`. There is no build step or package installation. The server binds only to loopback and serves files from this project directory.
+## Run locally
 
-## Project structure
+Use Node.js 20.9 or later.
 
-```text
-index.html                 Semantic page structure and asset references
-styles/
-  tokens.css                Color, typography, and shared design tokens
-  base.css                  Reusable text, button, link, and avatar styles
-  layout.css                App shell, sidebar, header, and page grid
-  components.css            Cards, tables, modal, progress, and toast
-  responsive.css            Tablet, mobile, and reduced-motion rules
-scripts/
-  app.js                    Application bootstrap and dashboard bindings
-  modules/
-    notifications.js        Toast feedback
-    modal.js                Evaluation period dialog
-    navigation.js           Workspace selection and mobile sidebar
-    search.js               Search input and keyboard shortcut
-serve.mjs                  Loopback-only local preview server
+```bash
+npm install
+npm run dev
 ```
 
-## Coding conventions
+Open `http://localhost:3000` in a browser. You can also use `pnpm install` and `pnpm dev`.
 
-- Use two spaces for indentation, descriptive names, and one statement per line.
-- Keep page structure in semantic HTML; use labels and accessible names for controls.
-- Define palette and shared values in `styles/tokens.css`; place responsive rules in `styles/responsive.css`.
-- Keep styles grouped by purpose and avoid inline styling.
-- Keep browser behavior in focused scripts under `scripts/modules/`. Modules register under `window.FacultyEvaluation` and load in order from `index.html`. This classic-script pattern preserves the direct `file://` preview without requiring a bundler.
-- Use native browser APIs and avoid dependencies until the project needs them.
+## Supabase connection setup
 
-## Prototype scope
+Copy `.env.example` to `.env.local` and fill in the project URL and publishable key from the Supabase dashboard. The local `.env.local` is ignored by Git. Supabase browser and server client helpers are available in `lib/supabase/` and use `@supabase/ssr` for cookie-based sessions.
 
-- Dashboard includes evaluation participation, evaluation periods, recent activity, and program progress.
-- Sidebar navigation previews workspace selection for programs, courses, sections, teachers, assignments, students, criteria, periods, results, reports, and user management.
-- The evaluation period form and toast interactions are demonstration UI only; records are not persisted.
-- Sample dashboard data is illustrative. No authentication or database is connected.
+The database migrations are in `supabase/migrations/`. The first migration sets up the schema and privacy policies. The second allows only OLOPSC-domain accounts to be created and adds school-email checks to sensitive student-data policies. Both migrations have been applied to `Faculty_Eval`. All 11 public tables have Row Level Security enabled.
 
-## Reference workflow
+## Live Supabase flow
 
-1. Configure programs and program chairs; create courses and sections.
-2. Add teachers and assign them to courses; register eligible students.
-3. Maintain evaluation criteria and open a semester evaluation period.
-4. Check student eligibility by status and section, then accept an evaluation for an eligible teacher, course, and term.
-5. Validate submissions, save the evaluation with criterion responses, and aggregate results when the period closes.
-6. Program chairs and evaluators review authorized results and reports.
+School accounts sign in through Supabase Auth. Student schedules, professor assignments, periods, criteria, and completion status are read from the database. Submissions use the `submit_course_evaluation` database function, which validates the student, course assignment, open period, and every required rating. Admins see identified submissions and ratings; professors see comments only for their assigned courses.
 
-The supplied diagrams show slightly different schema versions. Confirm whether evaluator accounts are separate user records and whether student section membership is direct before building a production database.
+After applying migration 2, create the administrator account in Supabase Dashboard under **Authentication → Users → Add user**, using `kramos24a-0023@olopsc.edu.ph` and a password you enter there. That address is assigned the admin role automatically; new school accounts default to student until an administrator changes their role.
+
+Keep self-registration disabled in Supabase Auth so school accounts are provisioned by an administrator. The school administrator must populate programs, courses, professor accounts and course assignments, evaluation periods, criteria, and student records/enrollments. These records determine what appears in each account.
