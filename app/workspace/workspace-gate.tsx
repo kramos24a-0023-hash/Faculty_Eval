@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import StudentDashboard, { type StudentAccess } from "../student-dashboard";
+import Dashboard from "../dashboard";
 import { createClient } from "../../lib/supabase/client";
 
 type Access = StudentAccess & { email?: string; role?: string };
@@ -80,7 +81,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
   if (message) return <main className="workspace-checking">{message} Please contact your school administrator.</main>;
   if (!access) return <main className="workspace-checking">Checking school access…</main>;
   if (requiredRole === "student") return <StudentDashboard onLogout={signOut} student={access} />;
-  if (requiredRole === "admin") return <AdminTransparency onLogout={signOut} />;
+  if (requiredRole === "admin") return <><div role="status" style={{ padding: "10px 16px", background: "#fff4d6", color: "#644b00", textAlign: "center", fontSize: 13 }}>Demo data · Changes on this admin screen are temporary and are not saved.</div><Dashboard onLogout={signOut} /></>;
   return <ProfessorComments onLogout={signOut} />;
 }
 
@@ -97,19 +98,4 @@ function ProfessorComments({ onLogout }: { onLogout: () => void }) {
     return () => { active = false; };
   }, []);
   return <main className="workspace-checking" style={{ display: "block", padding: 32, background: "#f4f7fb", color: "#26364d" }}><header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h1>Professor comments</h1><button className="button button--secondary" onClick={onLogout}>Log out</button></header><p>Comments are shown only for courses assigned to your professor account. Ratings and student identities are hidden; comments display a name only when the student chose to share it.</p>{error && <p role="alert">{error}</p>}{comments.length ? comments.map((comment) => <article className="panel" key={comment.id} style={{ margin: "16px 0", padding: 20 }}><small>{comment.courses?.[0] ? `${comment.courses[0].code} · ${comment.courses[0].name}` : "Course"}</small><p>{comment.body}</p><small>{comment.professor_visible_name ?? "Anonymous student"}</small></article>) : !error && <p>No comments are available for your courses yet.</p>}</main>;
-}
-
-function AdminTransparency({ onLogout }: { onLogout: () => void }) {
-  const [rows, setRows] = useState<any[]>([]);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    void createClient().from("evaluation_submissions").select("id, submitted_at, profiles(full_name), courses(name, code), evaluation_periods(name), evaluation_ratings(rating, evaluation_criteria(prompt)), evaluation_comments(body, is_anonymous, professor_visible_name)").order("submitted_at", { ascending: false }).then(({ data, error: queryError }) => {
-      if (!active) return;
-      if (queryError) setError("Results could not be loaded. Check that the database migration is applied and this account has the admin role.");
-      else setRows(data ?? []);
-    });
-    return () => { active = false; };
-  }, []);
-  return <main style={{ minHeight: "100vh", padding: 32, background: "#f4f7fb", color: "#26364d" }}><header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}><div><p className="eyebrow">OLOPSC · ADMINISTRATOR</p><h1>Evaluation transparency</h1><p>Identified submissions and ratings are visible to administrators only.</p></div><button className="button button--secondary" onClick={onLogout}>Log out</button></header><section style={{ marginTop: 28 }}><h2>{rows.length} submitted {rows.length === 1 ? "evaluation" : "evaluations"}</h2>{error && <p role="alert">{error}</p>}{rows.length ? rows.map((row) => <article className="panel" key={row.id} style={{ margin: "16px 0", padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><strong>{row.profiles?.full_name ?? "Student"} · {row.courses?.code} {row.courses?.name}</strong><small>{row.evaluation_periods?.name} · {new Date(row.submitted_at).toLocaleString()}</small></div><div style={{ display: "grid", gap: 8, marginTop: 16 }}>{(row.evaluation_ratings ?? []).map((rating: any, index: number) => <div key={`${row.id}-${index}`} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}><span>{rating.evaluation_criteria?.prompt ?? "Criterion"}</span><strong>{rating.rating}/5</strong></div>)}</div>{row.evaluation_comments?.[0] && <p style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e3eaf5" }}>Comment: {row.evaluation_comments[0].body} <small>({row.evaluation_comments[0].is_anonymous ? "anonymous to professor" : `shared with professor as ${row.evaluation_comments[0].professor_visible_name}`})</small></p>}</article>) : !error && <p>No evaluations have been submitted yet.</p>}</section></main>;
 }

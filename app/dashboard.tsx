@@ -61,7 +61,7 @@ function Progress({ value, light = false }: { value: number; light?: boolean }) 
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
   const [page, setPage] = useState<Page>("Overview");
   const [periods, setPeriods] = useState(initialPeriods);
   const [periodDialog, setPeriodDialog] = useState(false);
@@ -142,7 +142,7 @@ export default function Dashboard() {
         </nav>
         <div className="sidebar__bottom">
           <div className="help-card"><span className="help-card__icon">?</span><span><strong>Need a hand?</strong><small>Help for your workspace</small></span><span className="muted">↗</span></div>
-          <div className="user-profile"><span className="avatar avatar--sidebar">MC</span><span><strong>Maria Clara</strong><small>System administrator</small></span><button className="icon-button icon-button--sidebar" type="button" aria-label="Profile menu">···</button></div>
+          <div className="user-profile"><span className="avatar avatar--sidebar">MC</span><span><strong>Maria Clara</strong><small>System administrator</small></span><button className="icon-button icon-button--sidebar" type="button" aria-label="Log out" title="Log out" onClick={() => onLogout?.()}>↪</button></div>
         </div>
       </aside>
 
