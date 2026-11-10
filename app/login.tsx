@@ -16,6 +16,9 @@ function getResetEmailErrorMessage(error: { code?: string; status?: number }) {
   if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit") {
     return "Too many reset requests were made. Please wait before requesting another email.";
   }
+  if (error.code === "unexpected_failure" || error.status === 500) {
+    return "The password reset email service rejected the request. The school administrator needs to verify the sender domain with the email provider.";
+  }
   if (error.code === "email_provider_disabled") {
     return "Email sign-in is disabled in Supabase. Ask your administrator to enable the email provider.";
   }
@@ -24,6 +27,22 @@ function getResetEmailErrorMessage(error: { code?: string; status?: number }) {
   return errorCode
     ? `Supabase couldn’t send the reset email (error ${errorCode}). Check Authentication → SMTP Settings in the Supabase dashboard.`
     : "We couldn’t reach Supabase to send the reset email. Check your connection and try again.";
+}
+
+function getPasswordUpdateErrorMessage(error: { code?: string; message?: string }) {
+  if (error.code === "weak_password") {
+    return "Choose a stronger password that meets the school account requirements.";
+  }
+  if (error.code === "same_password") {
+    return "Choose a password you haven’t used before.";
+  }
+  if (error.code === "invalid_credentials") {
+    return "Your current password is incorrect. Check it and try again.";
+  }
+  if (error.code === "reauthentication_needed" || error.code === "reauthentication_not_valid") {
+    return "For your security, sign in again and restart the password change.";
+  }
+  return "We couldn’t update your password. Please try again or request a reset email.";
 }
 
 export default function LoginPage({ isPasswordReset = false, initialMessage = "" }: LoginPageProps) {
@@ -113,7 +132,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
 
         const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
         if (updateError) {
-          setMessage("We couldn’t reset your password. Please try again or request a new reset email.");
+          setMessage(getPasswordUpdateErrorMessage(updateError));
           return;
         }
 
@@ -126,10 +145,6 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
       }
 
       const email = identity.trim().toLowerCase();
-      if (!/^[^@]+@olopsc\.edu\.ph$/.test(email)) {
-        setMessage("Use your OLOPSC school email address.");
-        return;
-      }
 
       if (isRequestingReset) {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -140,7 +155,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
           return;
         }
         setIsResetEmailSent(true);
-        setMessage("If an account exists for that school email, a password reset link has been sent.");
+        setMessage("If an account exists for that email, a password reset link has been sent.");
         return;
       }
 
@@ -160,10 +175,13 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
           return;
         }
 
-        const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: newPassword,
+          current_password: password,
+        });
         if (updateError) {
           await supabase.auth.signOut();
-          setMessage("We couldn’t change your password. Please try again or contact your school administrator.");
+          setMessage(getPasswordUpdateErrorMessage(updateError));
           return;
         }
 
@@ -181,7 +199,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
         password,
       });
       if (error || !data.user) {
-        setMessage("We couldn’t sign you in. Check your school email and password, or contact your school administrator.");
+        setMessage("That email or password doesn’t match a provisioned account. Try again or use “Forgot your password?” to reset it.");
         return;
       }
 
@@ -232,7 +250,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
   const description = isPasswordReset
     ? "Choose a new password for your school account."
     : isRequestingReset
-      ? "Enter your OLOPSC school email and we’ll send a reset link."
+      ? "Enter the email address on your account and we’ll send a reset link."
       : isChangingPassword
         ? "Verify your current password, then choose a new one."
         : "Use your school account to access faculty evaluations.";
@@ -278,8 +296,8 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
             </div>
           ) : !isPasswordReset || hasRecoverySession ? (
             <form className="login-form" onSubmit={handleSubmit}>
-              {!isPasswordReset && <label className="login-field" htmlFor="school-email">School email
-                <span className="login-input-wrap"><span className="login-input-icon" aria-hidden="true">✉</span><input id="school-email" name="identity" type="email" autoComplete={isRequestingReset ? "email" : "username"} placeholder="name@olopsc.edu.ph" value={identity} onChange={(event) => setIdentity(event.target.value)} required /></span>
+              {!isPasswordReset && <label className="login-field" htmlFor="school-email">Email address
+                <span className="login-input-wrap"><span className="login-input-icon" aria-hidden="true">✉</span><input id="school-email" name="identity" type="email" autoComplete={isRequestingReset ? "email" : "username"} placeholder="name@example.com" value={identity} onChange={(event) => setIdentity(event.target.value)} required /></span>
               </label>}
               {!isPasswordReset && !isRequestingReset && <label className="login-field" htmlFor="school-password">{isChangingPassword ? "Current password" : "Password"}
                 <span className="login-input-wrap"><span className="login-input-icon" aria-hidden="true">▣</span><input id="school-password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder={isChangingPassword ? "Enter your current password" : "Enter your password"} value={password} onChange={(event) => setPassword(event.target.value)} required /><button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "Hide" : "Show"}</button></span>
@@ -305,7 +323,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
             </form>
           ) : null}
 
-          {!isPasswordReset && <><div className="access-note"><span className="access-note__icon" aria-hidden="true">ⓘ</span><p><strong>Your access is assigned by OLOPSC.</strong> Students, faculty, and administrators see the workspace for their school role.</p></div><p className="login-card__footnote"><span aria-hidden="true">◇</span> Access is limited to accounts with an @olopsc.edu.ph school email.</p></>}
+          {!isPasswordReset && <><div className="access-note"><span className="access-note__icon" aria-hidden="true">ⓘ</span><p><strong>Your access is assigned by OLOPSC.</strong> Students, faculty, and administrators see the workspace for their school role.</p></div><p className="login-card__footnote"><span aria-hidden="true">◇</span> Only accounts provisioned by your school administrator can sign in.</p></>}
         </div>
         <div className="login-panel__footer"><span>Need access? Contact your school administrator.</span><span><i /> Secure school workspace</span></div>
       </section>
