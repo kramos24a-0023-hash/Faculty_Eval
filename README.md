@@ -25,6 +25,10 @@ The database migrations are in `supabase/migrations/`. The first migration sets 
 
 School accounts sign in through Supabase Auth. Student schedules, professor assignments, periods, criteria, and completion status are read from the database. Submissions use the `submit_course_evaluation` database function, which validates the student, course assignment, open period, and every required rating. Admins see identified submissions and ratings; professors see comments only for their assigned courses.
 
+Password recovery sends a Supabase Auth reset email and exchanges its one-time code at `/auth/callback` before allowing a new password. Add `https://faculty-eval.vercel.app/auth/callback` and `http://localhost:3000/auth/callback` to the Supabase project's **Authentication → URL Configuration → Redirect URLs** allow list. The recovery email template should retain Supabase's `{{ .ConfirmationURL }}` link.
+
+For production email delivery, configure a custom SMTP provider in **Authentication → SMTP Settings**. Supabase's built-in sender is restricted to project-team addresses and has a very low sending limit, so it cannot reliably deliver password resets to school accounts. Keep SMTP credentials in the Supabase dashboard; never add them to this repository or client environment variables.
+
 After applying migration 2, create the administrator account in Supabase Dashboard under **Authentication → Users → Add user**, using `kramos24a-0023@olopsc.edu.ph` and a password you enter there. That address is assigned the admin role automatically; new school accounts default to student until an administrator changes their role.
 
 Keep self-registration disabled in Supabase Auth so school accounts are provisioned by an administrator. The school administrator must populate programs, courses, professor accounts and course assignments, evaluation periods, criteria, and student records/enrollments. These records determine what appears in each account.

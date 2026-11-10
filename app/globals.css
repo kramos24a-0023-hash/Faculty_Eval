@@ -159,6 +159,7 @@ button { font-family: inherit; }
 .password-toggle, .login-text-button { padding: 0; border: 0; background: transparent; color: #2559af; cursor: pointer; font: 600 10px var(--font-body); white-space: nowrap; }
 .password-toggle { color: #7f8ca3; }
 .login-form__options { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -3px; }
+.login-form__links { display: flex; align-items: center; gap: 14px; }
 .remember-option { display: inline-flex; align-items: center; gap: 7px; color: #71819a; font-size: 10px; }
 .remember-option input { width: 14px; height: 14px; accent-color: #1c51c5; }
 .login-submit { display: flex; height: 47px; align-items: center; justify-content: center; gap: 12px; margin-top: 2px; border: 0; border-radius: 8px; background: #1749a7; box-shadow: 0 5px 12px rgb(23 73 167 / 17%); color: #fff; cursor: pointer; font: 700 12px var(--font-body); transition: background 150ms ease, transform 150ms ease; }
