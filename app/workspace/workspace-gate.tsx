@@ -81,7 +81,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
   if (message) return <main className="workspace-checking">{message} Please contact your school administrator.</main>;
   if (!access) return <main className="workspace-checking">Checking school access…</main>;
   if (requiredRole === "student") return <StudentDashboard onLogout={signOut} student={access} />;
-  if (requiredRole === "admin") return <><div role="status" style={{ padding: "10px 16px", background: "#fff4d6", color: "#644b00", textAlign: "center", fontSize: 13 }}>Demo data · Changes on this admin screen are temporary and are not saved.</div><Dashboard onLogout={signOut} /></>;
+  if (requiredRole === "admin") return <><div role="status" style={{ padding: "10px 16px", background: "#fff4d6", color: "#644b00", textAlign: "center", fontSize: 13 }}>Demo data · Changes on this admin screen are temporary and are not saved.</div><Dashboard onLogout={signOut} adminName={access.name ?? "System admin"} /></>;
   return <ProfessorComments onLogout={signOut} />;
 }
 

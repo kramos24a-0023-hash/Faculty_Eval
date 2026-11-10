@@ -61,7 +61,7 @@ function Progress({ value, light = false }: { value: number; light?: boolean }) 
   );
 }
 
-export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
+export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onLogout?: () => void; adminName?: string }) {
   const [page, setPage] = useState<Page>("Overview");
   const [periods, setPeriods] = useState(initialPeriods);
   const [periodDialog, setPeriodDialog] = useState(false);
@@ -73,6 +73,9 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const totalEligible = 2458;
+  const nameParts = adminName.trim().split(/\s+/).filter((part) => part.length > 1);
+  const adminInitials = nameParts.length > 1 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0] ?? "A").slice(0, 2).toUpperCase();
+  const firstName = adminName.trim().split(/\s+/)[0] || adminName;
   const participation = Math.round((submitted / totalEligible) * 1000) / 10;
   const filteredTeachers = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -142,7 +145,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
         </nav>
         <div className="sidebar__bottom">
           <div className="help-card"><span className="help-card__icon">?</span><span><strong>Need a hand?</strong><small>Help for your workspace</small></span><span className="muted">↗</span></div>
-          <div className="user-profile"><span className="avatar avatar--sidebar">MC</span><span><strong>Maria Clara</strong><small>System administrator</small></span><button className="icon-button icon-button--sidebar" type="button" aria-label="Log out" title="Log out" onClick={() => onLogout?.()}>↪</button></div>
+          <div className="user-profile"><span className="avatar avatar--sidebar">{adminInitials}</span><span><strong>{adminName}</strong><small>System admin</small></span><button className="icon-button icon-button--sidebar" type="button" aria-label="Log out" title="Log out" onClick={() => onLogout?.()}>↪</button></div>
         </div>
       </aside>
 
@@ -153,14 +156,14 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
           <div className="top-actions">
             <label className="search-box"><span className="search-box__icon">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search teachers, courses..." aria-label="Search teachers and courses" /><kbd>Ctrl K</kbd></label>
             <button className="icon-button notification-button" type="button" aria-label="Notifications" onClick={() => setToast("You’re all caught up on notifications.")}>♧<span className="notification-button__dot" /></button>
-            <span className="avatar" aria-label="Maria Clara">MC</span>
+            <span className="avatar" aria-label={adminName}>{adminInitials}</span>
           </div>
         </header>
 
         <div className="content">
           {page === "Overview" && <>
             <section className="page-heading">
-              <div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL YEAR 2026–2027 <span>·</span> FIRST SEMESTER</p><h1>Good morning, Maria <span className="heading__spark">✳</span></h1><p className="page-heading__description">A clear view of participation and faculty feedback across OLOPSC.</p></div>
+              <div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL YEAR 2026–2027 <span>·</span> FIRST SEMESTER</p><h1>Good morning, {firstName} <span className="heading__spark">✳</span></h1><p className="page-heading__description">A clear view of participation and faculty feedback across OLOPSC.</p></div>
               <button className="button button--primary" type="button" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button>
             </section>
             <section className="metric-grid" aria-label="Evaluation overview">
