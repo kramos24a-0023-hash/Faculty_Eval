@@ -269,7 +269,8 @@ button { font-family: inherit; }
 .program-result-group__header h2 { margin: 4px 0 0; color: #fff; font: 700 12px/1.35 var(--font-display); }
 .program-result-group__header > span { color: #e0eaff; font-size: 9px; white-space: nowrap; }
 .program-result-group__courses { display: grid; gap: 8px; }
-.professor-result { display: grid; grid-template-columns: 40px minmax(0, 1fr) 24px minmax(130px, .45fr); align-items: center; gap: 13px; padding: 15px 17px; border: 1px solid rgb(255 255 255 / 72%); border-radius: 10px; background: #fff; }
+.professor-result { display: grid; grid-template-columns: 40px minmax(0, 1fr) 24px minmax(130px, .45fr) auto; align-items: center; gap: 13px; padding: 15px 17px; border: 1px solid rgb(255 255 255 / 72%); border-radius: 10px; background: #fff; }
+.professor-result > .button { justify-self: start; }
 .professor-result__avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; background: #edf3ff; color: #1749a7; font-size: 10px; font-weight: 800; }
 .professor-result__course small, .professor-result__teacher small { display: block; color: #9b771b; font-size: 8px; font-weight: 700; letter-spacing: .3px; }
 .professor-result__course h2, .professor-result__course h3 { margin: 5px 0 0; color: #17315c; font: 700 12px/1.35 var(--font-display); }
@@ -334,6 +335,7 @@ button { font-family: inherit; }
   .professor-result__avatar { width: 32px; height: 32px; }
   .professor-result__arrow { display: none; }
   .professor-result__teacher { grid-column: 2; padding-top: 7px; border-top: 1px solid #edf0f5; }
+  .professor-result > .button { grid-column: 2; }
   .survey-guide-card { padding: 18px 14px; }
 }
 

@@ -175,13 +175,14 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
 
           {page === "Find a professor" && <section className="subpage">
             <div className="student-section-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> YOUR COURSE PROFESSORS</p><h1>Find your professor</h1><p>Search the professors teaching your assigned courses this semester.</p></div></div>
-            <div className="professor-search"><span aria-hidden="true">⌕</span><input type="search" value={professorSearch} onChange={(event) => setProfessorSearch(event.target.value)} placeholder="Try Daniel Reyes or IT 302..." aria-label="Search your professors and courses" />{professorSearch && <button type="button" onClick={() => setProfessorSearch("")}>Clear</button>}</div>
+            <div className="professor-search"><span aria-hidden="true">⌕</span><input type="search" value={professorSearch} onChange={(event) => setProfessorSearch(event.target.value)} placeholder="Try Rame Tiongson or CC104..." aria-label="Search your professors and courses" />{professorSearch && <button type="button" onClick={() => setProfessorSearch("")}>Clear</button>}</div>
             <p className="professor-search-hint">Results show only your assigned courses, organized as Program → Course → Professor.</p>
             <div className="professor-results" aria-live="polite">
               {matchingDirectoryCourseCount ? matchingDirectoryPrograms.map((group) => <section className="program-result-group" key={group.program}>
                 <header className="program-result-group__header"><div><small>PROGRAM</small><h2>{group.program}</h2></div><span>{group.courses.length} {group.courses.length === 1 ? "course" : "courses"}</span></header>
                 <div className="program-result-group__courses">{group.courses.map((item) => {
-                  const isAssigned = courses.some((course) => String(course.id) === String(item.id));
+                  const enrolledCourse = courses.find((course) => String(course.id) === String(item.id));
+                  const isAssigned = Boolean(enrolledCourse);
                   const isComplete = completedIds.includes(String(item.id));
                   const statusLabel = isComplete ? "Completed" : isAssigned ? "Ready to evaluate" : "Not assigned";
                   const statusClass = isComplete ? "status--complete" : isAssigned ? "status--active" : "status--upcoming";
@@ -191,6 +192,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
                     <div className="professor-result__course"><small>COURSE · {item.code}</small><h3>{item.course}</h3></div>
                     <span className="professor-result__arrow" aria-hidden="true">›</span>
                     <div className="professor-result__teacher"><small>PROFESSOR</small><strong>{item.professor}</strong><span className={`status ${statusClass}`}>{statusLabel}</span></div>
+                    <button className="button button--primary button--small" type="button" disabled={!enrolledCourse || isComplete} onClick={() => { if (enrolledCourse) openCourse(enrolledCourse); }}>{isComplete ? "Submitted" : "Evaluate subject"}</button>
                   </article>;
                 })}</div>
               </section>) : <div className="professor-no-results"><span>⌕</span><strong>No matching professors, programs, or courses</strong><p>Try a professor’s last name, program name, course title, or code.</p></div>}

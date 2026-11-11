@@ -30,7 +30,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
         const { data: record, error: recordError } = await supabase.from("student_records").select("school_student_id, enrollment_date, year_level, program_id").eq("student_id", user.id).maybeSingle();
         if (recordError || !record) throw new Error("Your student record is not linked yet.");
         const [programResult, periodResult] = await Promise.all([
-          record.program_id ? supabase.from("programs").select("name").eq("id", record.program_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+          record.program_id ? supabase.from("programs").select("name, department").eq("id", record.program_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
           supabase.from("evaluation_periods").select("id, name, ends_at, is_open").eq("is_open", true).lte("starts_at", new Date().toISOString()).gte("ends_at", new Date().toISOString()).order("ends_at", { ascending: true }).limit(1).maybeSingle(),
         ]);
         const period = periodResult.data;
@@ -42,29 +42,36 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
           if (enrollmentError) throw enrollmentError;
           const courseRows = (enrollments ?? []).map((row: any) => row.courses).filter(Boolean);
           const courseIds = courseRows.map((course: any) => course.id);
-          const [professorResult, criterionResult, submissionResult, programNamesResult] = await Promise.all([
+          const [professorResult, directoryInstructorResult, criterionResult, submissionResult, programNamesResult] = await Promise.all([
             courseIds.length ? supabase.from("course_professors").select("course_id, professor_id, profiles(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
+            courseIds.length ? supabase.from("course_instructors").select("course_id, instructors(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
             supabase.from("evaluation_criteria").select("id, prompt").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
             supabase.from("evaluation_submissions").select("course_id").eq("student_id", user.id).eq("period_id", period.id),
-            supabase.from("programs").select("id, name"),
+            supabase.from("programs").select("id, name, department"),
           ]);
-          if (professorResult.error || criterionResult.error || submissionResult.error || programNamesResult.error) throw new Error("Could not load your evaluation schedule.");
-          const profsByCourse = new Map<string, string[]>();
+          if (professorResult.error || directoryInstructorResult.error || criterionResult.error || submissionResult.error || programNamesResult.error) throw new Error("Could not load your evaluation schedule.");
+          const instructorsByCourse = new Map<string, string[]>();
           for (const item of professorResult.data ?? []) {
             const person = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
             if (!person?.full_name) continue;
-            profsByCourse.set(item.course_id, [...(profsByCourse.get(item.course_id) ?? []), person.full_name]);
+            instructorsByCourse.set(item.course_id, [...(instructorsByCourse.get(item.course_id) ?? []), person.full_name]);
           }
-          const programNames = new Map((programNamesResult.data ?? []).map((p: any) => [p.id, p.name]));
+          for (const item of directoryInstructorResult.data ?? []) {
+            const person = Array.isArray(item.instructors) ? item.instructors[0] : item.instructors;
+            if (!person?.full_name) continue;
+            const current = instructorsByCourse.get(item.course_id) ?? [];
+            if (!current.includes(person.full_name)) instructorsByCourse.set(item.course_id, [...current, person.full_name]);
+          }
+          const programNames = new Map((programNamesResult.data ?? []).map((p: any) => [p.id, [p.department, p.name].filter(Boolean).join(" · ")]));
           courses = courseRows.map((course: any) => {
-            const teacher = profsByCourse.get(course.id)?.join(", ") ?? "Professor not assigned";
+            const teacher = instructorsByCourse.get(course.id)?.join(", ") ?? "Professor not assigned";
             return { id: course.id, periodId: period.id, course: course.name, code: course.code, teacher, initials: teacher.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase(), program: String(programNames.get(course.program_id) ?? "OLOPSC") };
           });
           criteria = criterionResult.data ?? [];
           completedCourseIds = (submissionResult.data ?? []).map((row: any) => row.course_id);
         }
         const enrollmentDate = record.enrollment_date ? new Date(`${record.enrollment_date}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : "Not provided";
-        if (active) setAccess({ name: profile.full_name, email: user.email, role: profile.role, studentId: record.school_student_id, enrollmentDate, program: programResult.data?.name ?? "Program not assigned", yearLevel: record.year_level ?? "Not provided", courses, criteria, completedCourseIds, periodId: period?.id, periodName: period?.name, periodEnd: period?.ends_at, periodIsOpen: period?.is_open, isSupabaseUser: true });
+        if (active) setAccess({ name: profile.full_name, email: user.email, role: profile.role, studentId: record.school_student_id, enrollmentDate, program: programResult.data ? [programResult.data.department, programResult.data.name].filter(Boolean).join(" · ") : "Program not assigned", yearLevel: record.year_level ?? "Not provided", courses, criteria, completedCourseIds, periodId: period?.id, periodName: period?.name, periodEnd: period?.ends_at, periodIsOpen: period?.is_open, isSupabaseUser: true });
       } catch (error) {
         if (active) setMessage(error instanceof Error ? error.message : "Could not load your school account.");
       }
