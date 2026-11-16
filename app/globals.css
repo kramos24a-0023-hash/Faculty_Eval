@@ -135,16 +135,23 @@ button { font-family: inherit; }
 .toast { display: flex; align-items: center; gap: 15px; max-width: min(440px, calc(100vw - 32px)); opacity: 1; pointer-events: auto; }
 .toast button { padding: 0; border: 0; background: transparent; color: #fff; cursor: pointer; font-size: 17px; }
 
-/* Give the admin workspace the same blue-forward, white-card balance as the student view. */
-.admin-shell { --surface-panel: #fff; --color-border: #d7e3f7; --color-track: #eaf1ff; }
-.admin-shell .panel, .admin-shell .metric-card { border: 1px solid #d7e3f7; border-top: 3px solid #efc64b; background: #fff; color: #103578; box-shadow: 0 8px 24px rgb(11 46 112 / 12%); }
+/* Gold fills replace the blank white admin cards while blue remains the main page and navigation color. */
+.admin-shell { --surface-panel: #efc64b; --color-border: #d7ac32; --color-track: #d7ac32; }
+.admin-shell .panel, .admin-shell .metric-card { border: 1px solid #d7ac32; border-top: 3px solid #1c51c5; background: #efc64b; color: #103578; box-shadow: 0 8px 24px rgb(11 46 112 / 12%); }
 .admin-shell .button--primary { background: #1c51c5; color: #fff; }
 .admin-shell .button--primary:hover { background: #1749a7; }
-.admin-shell .period-row--upcoming { border-top-color: #d7e3f7; }
-.admin-shell .evaluation-results-detail { border-top-color: #efc64b; background: #fffdf4; }
-.admin-shell .evaluation-results-panel tr.is-selected { background: #fff6d5; }
-.admin-shell .evaluation-comment-result { border-color: #d7e3f7; border-left: 3px solid #d7ac32; box-shadow: 0 2px 8px rgb(11 46 112 / 6%); }
-.admin-shell .metric-icon { background: #fff4cc; color: #1749a7; }
+.admin-shell .button--secondary { border-color: #d7ac32; background: #efc64b; color: #103578; }
+.admin-shell .button--secondary:hover { background: #e6b932; }
+.admin-shell .search-box, .admin-shell .report-period-select select, .admin-shell .evaluation-results-detail__heading select { border-color: #d7ac32; background: #efc64b; color: #103578; }
+.admin-shell .period-card__calendar, .admin-shell .program-cell__icon { border-color: #d7ac32; background: #efc64b; color: #103578; }
+.admin-shell .period-row--upcoming { border-top-color: #d7ac32; }
+.admin-shell .evaluation-results-detail { border-top-color: #1c51c5; background: #efc64b; }
+.admin-shell thead { background: #efc64b; }
+.admin-shell th { border-color: #d7ac32; }
+.admin-shell .activity-item__icon { background: #e6b932; color: #103578; }
+.admin-shell .evaluation-results-panel tr.is-selected { background: #e6b932; }
+.admin-shell .evaluation-comment-result { border-color: #d7ac32; border-left: 3px solid #1c51c5; background: #efc64b; box-shadow: 0 2px 8px rgb(11 46 112 / 6%); }
+.admin-shell .metric-icon { background: #e6b932; color: #103578; }
 .admin-shell .nav-label { font-size: 12px; font-weight: 800; }
 .admin-shell .nav-item { font-size: 14px; font-weight: 700; }
 .admin-shell .breadcrumb, .admin-shell .search-box input { font-size: 14px; font-weight: 600; }
@@ -173,7 +180,7 @@ button { font-family: inherit; }
 .student-roster-panel table { min-width: 960px; }
 .student-roster-name { color: #103578; font-size: 15px; font-weight: 800; }
 .student-course-tags { display: flex; max-width: 560px; flex-wrap: wrap; gap: 7px; }
-.student-course-tag { flex: 1 1 190px; padding: 7px 9px; border: 1px solid #efc64b; border-radius: 7px; background: #fff8df; color: #123a83; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.admin-shell .student-course-tag { flex: 1 1 190px; padding: 7px 9px; border: 1px solid #d7ac32; border-radius: 7px; background: #efc64b; color: #123a83; font-size: 13px; font-weight: 700; line-height: 1.4; }
 .student-course-empty { color: #4e6288; font-size: 13px; font-weight: 700; }
 .evaluation-results-detail__actions { display: flex; align-items: end; gap: 10px; }
 .evaluation-results-detail__actions label { flex: 1; }
