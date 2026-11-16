@@ -10,6 +10,7 @@ type ProgramStats = { name: string; code: string; eligible: number; submitted: n
 type TeacherQuestionScore = { prompt: string; section: string; average: number | null; responses: number };
 type TeacherComment = { body: string; commenter: string; course: string; createdAt: string };
 type TeacherRanking = { name: string; average: number; totalPoints: number; possiblePoints: number; responses: number; questions: TeacherQuestionScore[]; comments: TeacherComment[] };
+type StudentRosterRow = { id: string; name: string; schoolId: string; program: string; yearLevel: string; courses: string[] };
 
 const navigation: { title: string; icon: string; group: string }[] = [
   { title: "Overview", icon: "⌂", group: "Workspace" },
@@ -58,6 +59,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [teacherRankings, setTeacherRankings] = useState<TeacherRanking[]>([]);
   const [programStats, setProgramStats] = useState<ProgramStats[]>([]);
+  const [studentRoster, setStudentRoster] = useState<StudentRosterRow[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedRankedTeacher, setSelectedRankedTeacher] = useState("");
   const [teacherDetailsHidden, setTeacherDetailsHidden] = useState(false);
@@ -84,19 +86,20 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     let active = true;
     async function loadDashboard() {
       const db = createClient();
-      const [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult] = await Promise.all([
+      const [periodResult, courseResult, instructorResult, professorResult, studentProfileResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult] = await Promise.all([
         loadAllRows(db.from("evaluation_periods").select("id,name,semester,school_year,starts_at,ends_at,is_open").order("starts_at", { ascending: false }).order("id")),
         loadAllRows(db.from("courses").select("id,code,name,program_id,programs(name,department)").order("id")),
         loadAllRows(db.from("course_instructors").select("course_id,instructors(full_name)").order("course_id").order("instructor_id")),
         loadAllRows(db.from("course_professors").select("course_id,profiles(full_name,role)").order("course_id").order("professor_id")),
-        loadAllRows(db.from("student_records").select("student_id,year_level,program_id,programs(name)").order("student_id")),
+        loadAllRows(db.from("profiles").select("id,full_name").eq("role", "student").order("full_name").order("id")),
+        loadAllRows(db.from("student_records").select("student_id,school_student_id,year_level,program_id,programs(name,department)").order("student_id")),
         loadAllRows(db.from("student_enrollments").select("student_id,course_id,period_id").order("student_id").order("course_id").order("period_id")),
         loadAllRows(db.from("evaluation_submissions").select("id,student_id,course_id,period_id").order("id")),
         loadAllRows(db.from("evaluation_criteria").select("id,prompt,section,sort_order,period_id,is_active").order("sort_order").order("id")),
         loadAllRows(db.from("evaluation_ratings").select("submission_id,criterion_id,rating").order("submission_id").order("criterion_id")),
         loadAllRows(db.from("evaluation_comments").select("id,body,professor_visible_name,course_id,period_id,created_at").order("created_at").order("id")),
       ]);
-      const failed = [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult].find((result) => result.error);
+      const failed = [periodResult, courseResult, instructorResult, professorResult, studentProfileResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult].find((result) => result.error);
       if (failed?.error) { if (active) { setDataError(`Could not load admin data: ${failed.error.message}`); setLoading(false); } return; }
       if (!active) return;
       const periodsData = periodResult.data ?? [];
@@ -109,6 +112,27 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       const enrollments = (enrollmentResult.data ?? []).filter((e: any) => e.period_id === activePeriodId);
       const submissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
       const courses = courseResult.data ?? [];
+      const recordsByStudent = new Map((studentResult.data ?? []).map((record: any) => [record.student_id, record]));
+      const coursesByIdForRoster = new Map((courses as any[]).map((course: any) => [course.id, course]));
+      const coursesByStudent = new Map<string, string[]>();
+      for (const enrollment of enrollments as any[]) {
+        const course: any = coursesByIdForRoster.get(enrollment.course_id);
+        if (!course) continue;
+        const label = `${course.code} · ${course.name}`;
+        coursesByStudent.set(enrollment.student_id, [...(coursesByStudent.get(enrollment.student_id) ?? []), label]);
+      }
+      setStudentRoster((studentProfileResult.data ?? []).map((profile: any) => {
+        const record: any = recordsByStudent.get(profile.id);
+        const linkedProgram = Array.isArray(record?.programs) ? record.programs[0] : record?.programs;
+        return {
+          id: profile.id,
+          name: profile.full_name || "Name not set",
+          schoolId: record?.school_student_id || "Not linked",
+          program: linkedProgram ? [linkedProgram.department, linkedProgram.name].filter(Boolean).join(" · ") : "Not assigned",
+          yearLevel: record?.year_level || "Not set",
+          courses: [...new Set(coursesByStudent.get(profile.id) ?? [])],
+        };
+      }));
       setTotalStudents(new Set(enrollments.map((e: any) => e.student_id)).size);
       setTotalEligibleEnrollments(enrollments.length);
       setSubmitted(submissions.length);
@@ -299,7 +323,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
 
           {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty assignments grouped by course and enrolled student year level.</p></div></div><DirectoryTable search={search} teachers={teachers} onViewResults={(name) => { selectRankedTeacher(name); changePage("Faculty results"); }} /></section>}
 
-          {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">Review participation by academic program.</p></div></div><ProgramTable programs={programStats} /></section>}
+          {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">View student accounts, assigned program and year, and courses for the selected evaluation period.</p></div></div><ProgramTable programs={programStats} /><StudentRosterTable search={search} periodName={periods.find((period) => period.id === selectedPeriodId)?.name ?? "Selected period"} students={studentRoster} /></section>}
 
           {page === "Faculty results" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Professor statistics &amp; comments</h1><p className="page-heading__description">Rankings, total points, question averages, response counts, and student comments for each professor.</p></div><label className="report-period-select">Evaluation period<select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{period.name} · {period.schoolYear} · {period.semester}</option>)}</select></label></div><ProgramTable programs={programStats} /><EvaluationRanking rankings={teacherRankings} selectedTeacher={selectedRankedTeacher || teacherRankings[0]?.name || ""} onSelectTeacher={selectRankedTeacher} detailsHidden={teacherDetailsHidden} onToggleDetails={() => setTeacherDetailsHidden((hidden) => !hidden)} /><DirectoryTable search={search} teachers={teachers} onViewResults={selectRankedTeacher} /></section>}
 
@@ -351,4 +375,21 @@ function EvaluationRanking({ rankings, selectedTeacher, onSelectTeacher, details
 function DirectoryTable({ search, teachers, onViewResults }: { search: string; teachers: Teacher[]; onViewResults?: (name: string) => void }) {
   const visible = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
   return <section className="panel directory-panel"><div className="directory-panel__summary"><strong>{visible.length} faculty assignments</strong><span>Grouped by course and student year level</span></div><div className="table-scroll"><table><thead><tr><th>Teacher</th><th>Program</th><th>Year level</th><th>Assigned course</th><th>Evaluation status</th>{onViewResults && <th>Results</th>}</tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.id}><td><div className="program-cell"><span className="avatar">{teacher.initials}</span><span><strong>{teacher.name}</strong><small>{teacher.role}</small></span></div></td><td>{teacher.program}</td><td>{teacher.yearLevel}</td><td>{teacher.course}</td><td><span className="status status--active">{teacher.evaluations}% responses</span></td>{onViewResults && <td><button className="text-link" type="button" onClick={() => onViewResults(teacher.name)}>View results →</button></td>}</tr>)}</tbody></table>{visible.length === 0 && <p className="empty-state">No faculty assignments match “{search}”.</p>}</div></section>;
+}
+
+function StudentRosterTable({ search, periodName, students }: { search: string; periodName: string; students: StudentRosterRow[] }) {
+  const visible = students.filter((student) => `${student.name} ${student.schoolId} ${student.program} ${student.yearLevel} ${student.courses.join(" ")}`.toLowerCase().includes(search.toLowerCase()));
+  const assignedCount = students.filter((student) => student.courses.length > 0).length;
+  return <section className="panel student-roster-panel">
+    <div className="panel-heading"><div><h2>Available students</h2><p>{students.length} student accounts · {assignedCount} with courses assigned for {periodName}</p></div></div>
+    <div className="table-scroll"><table><thead><tr><th>Student</th><th>Student ID</th><th>Program</th><th>Year level</th><th>Assigned courses</th></tr></thead><tbody>
+      {visible.map((student) => <tr key={student.id}>
+        <td><strong className="student-roster-name">{student.name}</strong></td>
+        <td>{student.schoolId}</td>
+        <td>{student.program}</td>
+        <td>{student.yearLevel}</td>
+        <td><div className="student-course-tags">{student.courses.length ? student.courses.map((course) => <span className="student-course-tag" key={course}>{course}</span>) : <span className="student-course-empty">No courses assigned for this period</span>}</div></td>
+      </tr>)}
+    </tbody></table>{visible.length === 0 && <p className="empty-state">No student accounts match “{search}”.</p>}</div>
+  </section>;
 }

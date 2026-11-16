@@ -168,6 +168,13 @@ button { font-family: inherit; }
 .admin-shell .evaluation-comment-result small { font-size: 13px; font-weight: 600; }
 .admin-shell .evaluation-comment-result p { font-size: 16px; font-weight: 600; }
 .admin-shell .text-link { font-size: 14px; font-weight: 800; }
+.student-roster-panel { margin-bottom: 20px; }
+.student-roster-panel .panel-heading { padding: 20px 22px 0; }
+.student-roster-panel table { min-width: 960px; }
+.student-roster-name { color: #103578; font-size: 15px; font-weight: 800; }
+.student-course-tags { display: flex; max-width: 560px; flex-wrap: wrap; gap: 7px; }
+.student-course-tag { flex: 1 1 190px; padding: 7px 9px; border: 1px solid #efc64b; border-radius: 7px; background: #fff8df; color: #123a83; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.student-course-empty { color: #4e6288; font-size: 13px; font-weight: 700; }
 .evaluation-results-detail__actions { display: flex; align-items: end; gap: 10px; }
 .evaluation-results-detail__actions label { flex: 1; }
 
