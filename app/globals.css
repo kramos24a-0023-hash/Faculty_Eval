@@ -366,25 +366,43 @@ button { font-family: inherit; }
   .workspace-demo__bar { padding: 0 12px; font-size: 9px; }
 }
 
-/* Accessibility and responsive scaling */
+/* System-wide legibility and fluid layout */
 html { font-size: 100%; }
 body { font-size: 16px; line-height: 1.6; }
-button, input, select, textarea { font-size: max(15px, 1em); }
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, .nav-item, .button, .text-link { min-height: 44px; }
+input, select, textarea { min-height: 46px; padding: 10px 12px; }
 small, kbd { font-size: max(13px, 0.875em); line-height: 1.45; }
 .nav-item, .button, .search-box, .form-field, .directory-panel td, .directory-panel th,
 .participation-panel td, .participation-panel th, .period-card__main > p,
 .period-card__main > small, .page-heading__description, .panel-heading p,
-.notice p, .metric-card__top, .metric-card__footer { font-size: max(14px, 0.9em); }
+.notice p, .metric-card__top, .metric-card__footer, .activity-item p,
+.program-cell small, .activity-item small, .period-row__body > p,
+.period-row__body > small, .quick-actions, .page-footer { font-size: max(14px, 0.9em); }
+.eyebrow, .nav-label, .login-overline, .login-panel__school, .secure-label { font-size: max(13px, 0.82em); letter-spacing: .04em; }
+.avatar, .nav-item__icon, .metric-icon { font-size: max(16px, 1em); }
+.status, .nav-badge, .trend, .metric-card__caption { font-size: max(13px, 0.86em); }
+.panel, .metric-card { border-radius: 16px; box-shadow: 0 8px 24px rgb(11 46 112 / 14%); }
+.panel { padding: clamp(16px, 2vw, 26px); }
+.content { width: 100%; max-width: 1800px; margin-inline: auto; padding: clamp(18px, 3vw, 42px); }
+.main-area, .content, .subpage, .panel, .metric-card { min-width: 0; }
+.table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.table-scroll table { width: 100%; }
+.directory-panel table { min-width: 820px; }
+.login-card, .login-story__content, .evaluation-card, .student-evaluation-card { width: min(100%, 900px); }
+.search-box { width: clamp(220px, 28vw, 360px); height: auto; min-height: 44px; }
+.search-box input { min-height: 42px; padding: 0; font-size: 15px; }
 .brand__logo { width: 48px; height: 48px; flex: 0 0 auto; object-fit: contain; border-radius: 50%; background: white; }
 .brand__identity { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.brand__identity strong { font-size: clamp(13px, 1vw, 15px); line-height: 1.25; overflow-wrap: anywhere; }
+.brand__identity strong { font-size: clamp(14px, 1vw, 16px); line-height: 1.3; overflow-wrap: anywhere; }
 .brand__identity small { font-size: 13px; line-height: 1.35; }
 .login-brand__logo { width: clamp(64px, 8vw, 104px); height: clamp(64px, 8vw, 104px); object-fit: contain; border-radius: 50%; background: white; }
 .brand, .login-brand { align-items: center; }
 .page-heading h1 { font-size: clamp(1.8rem, 3vw, 2.5rem); line-height: 1.2; }
 .panel-heading h2, .period-row__title h2 { font-size: clamp(1.1rem, 1.6vw, 1.35rem); }
-.content { width: 100%; max-width: 1800px; margin-inline: auto; }
-.table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+body, button, input, select, textarea { text-rendering: optimizeLegibility; }
+:focus-visible { outline: 3px solid #ffdf70; outline-offset: 3px; }
 @media (max-width: 650px) {
   body { font-size: 15px; }
   .content { padding-inline: clamp(14px, 4vw, 24px); }
@@ -392,4 +410,14 @@ small, kbd { font-size: max(13px, 0.875em); line-height: 1.45; }
   .metric-grid { grid-template-columns: minmax(0, 1fr); }
   .course-grid { grid-template-columns: minmax(0, 1fr); }
   .login-panel__school { line-height: 1.5; }
+  .topbar { gap: 10px; padding-inline: 12px; }
+  .top-actions { min-width: 0; gap: 8px; }
+  .search-box { width: min(48vw, 300px); }
+  .search-box kbd { display: none; }
+  .directory-panel table { min-width: 760px; }
+  .student-profile-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .student-profile-course { grid-template-columns: 38px minmax(0, 1fr); }
+  .student-profile-course__professor { grid-column: 2; }
+  .login-panel__top { gap: 10px; }
+  .login-brand__logo { width: 62px; height: 62px; }
 }

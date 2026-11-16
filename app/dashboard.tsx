@@ -55,7 +55,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const nameParts = adminName.trim().split(/\s+/).filter((part) => part.length > 1);
   const adminInitials = nameParts.length > 1 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0] ?? "A").slice(0, 2).toUpperCase();
   const firstName = adminName.trim().split(/\s+/)[0] || adminName;
-  const participation = Math.round((submitted / totalEligible) * 1000) / 10;
+  const participation = totalEligible ? Math.round((submitted / totalEligible) * 1000) / 10 : 0;
   const filteredTeachers = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
 
   useEffect(() => {
