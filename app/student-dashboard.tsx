@@ -343,6 +343,10 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
               <h3 className="survey-group-title">{currentSurveyGroup?.name ?? "Faculty evaluation"}</h3><p className="section-copy">{currentSurveyGroup?.items.length ?? 0} items · Rate from 1 (Needs improvement) to 5 (Excellent).</p>
               <form onSubmit={submitEvaluation}>
                 {showValidation && <div className="survey-validation" role="alert"><span aria-hidden="true">!</span><p><strong>There are unanswered items</strong>{missingRatingCount} {missingRatingCount === 1 ? "item remains" : "items remain"}. Answer the highlighted questions in this group, then check the other groups before submitting.</p></div>}
+                <div className="rating-scale-key" aria-label="Rating scale">
+                  <p>Tap one score for each question</p>
+                  {["Needs improvement", "Satisfactory", "Moderately satisfactory", "Highly satisfactory", "Excellent"].map((label, index) => <span key={label}><strong>{index + 1}</strong>{label}</span>)}
+                </div>
                 {(currentSurveyGroup?.items ?? []).map(({ criterion: criterionRow, index }) => {
                   const criterion = criterionRow.prompt;
                   const unanswered = showValidation && !ratings[index];
@@ -350,7 +354,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
                     <legend className="visually-hidden">Question {index + 1}: {criterion}</legend>
                     <div className="rating-question"><strong>{String(index + 1).padStart(2, "0")}</strong><span>{criterion}</span></div>
                     <div className="rating-options" role="group" aria-label={`Rating for question ${index + 1}`}>
-                      {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" className={`rating-option ${ratings[index] === score ? "is-selected" : ""}`} aria-pressed={ratings[index] === score} onClick={() => rateCriterion(index, score)}><strong>{score}</strong><small>{["Needs improvement", "Satisfactory", "Moderately satisfactory", "Highly satisfactory", "Excellent"][score - 1]}</small></button>)}
+                      {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" className={`rating-option ${ratings[index] === score ? "is-selected" : ""}`} aria-label={`Rating ${score}: ${["Needs improvement", "Satisfactory", "Moderately satisfactory", "Highly satisfactory", "Excellent"][score - 1]}`} aria-pressed={ratings[index] === score} onClick={() => rateCriterion(index, score)}><strong>{score}</strong><small>{["Needs improvement", "Satisfactory", "Moderately satisfactory", "Highly satisfactory", "Excellent"][score - 1]}</small></button>)}
                     </div>
                     {unanswered && <p className="rating-field__error">Choose one rating for this statement.</p>}
                   </fieldset>;
