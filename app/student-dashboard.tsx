@@ -231,7 +231,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
       <aside className={`sidebar ${mobileNavOpen ? "is-open" : ""}`}>
         <a className="brand" href="#student-overview" onClick={(event) => { event.preventDefault(); changePage("Overview"); }}>
           <span className="brand__top"><img className="brand__logo" src="/olopsc-bmse-logo.webp" alt="" /><span className="brand__identity"><strong>OLOPSC</strong><small>FACULTY EVALUATION SYSTEM</small></span></span>
-          <span className="brand__college">Our Lady Of Perpetual Succor College of Business Management, Science and Education</span>
+          <span className="brand__college"><strong>Our Lady of Perpetual Succor College</strong><small>Business Management · Science · Education</small></span>
         </a>
         <div className="workspace-switch"><span className="workspace-switch__icon">♧</span><span><strong>Student workspace</strong><small>{student.program}</small></span><span className="muted">⌄</span></div>
         <nav className="primary-nav" aria-label="Student navigation">
@@ -261,7 +261,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
         <div className="content">
           {page === "Overview" && !selectedCourse && <>
             <section className="student-welcome">
-              <div><p className="eyebrow"><span className="eyebrow__dot" /> YOUR VOICE HELPS US GROW</p><h1>Good morning, {student.name.split(" ")[0]} <span className="heading__spark">✳</span></h1><p>Share thoughtful feedback about your classes this semester.</p><div className="student-welcome__meta"><span>{student.yearLevel}</span><i /> <span>{student.program}</span><i /> <span>ID {student.studentId}</span></div></div>
+              <div className="student-welcome__copy"><p className="eyebrow"><span className="eyebrow__dot" /> STUDENT FEEDBACK · OLOPSC</p><h1 className="student-welcome__headline">Your voice helps us grow<span className="heading__spark">✳</span></h1><p className="student-welcome__greeting">Good morning, {student.name.split(" ")[0]}. Share thoughtful feedback about your classes this semester.</p><div className="student-welcome__meta"><span>{student.yearLevel}</span><i /> <span>{student.program}</span><i /> <span>ID {student.studentId}</span></div></div>
               <div className="student-welcome__art" aria-hidden="true"><span>✦</span><strong>Every voice<br />matters.</strong><small>OLOPSC · 2026–2027</small></div>
             </section>
 
