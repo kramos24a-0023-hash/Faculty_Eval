@@ -399,7 +399,7 @@ small, kbd { font-size: max(13px, 0.875em); line-height: 1.45; }
 .brand__identity { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .brand__identity strong { font: 800 25px/1 var(--font-display); letter-spacing: -.04em; }
 .brand__identity small { color: #f2d77e; font-size: 13px; font-weight: 700; letter-spacing: .06em; line-height: 1.35; }
-.brand__college { max-width: 200px; color: #dce7ff; font-size: 14px; line-height: 1.45; }
+.brand__college { display: block; max-width: 200px; padding: 8px 0 8px 11px; border-left: 3px solid var(--color-gold-500); border-radius: 2px; color: #fff; font-size: 15px; font-weight: 700; line-height: 1.45; text-wrap: pretty; text-shadow: 0 1px 1px rgb(0 0 0 / 16%); }
 .login-brand__logo { width: clamp(64px, 8vw, 104px); height: clamp(64px, 8vw, 104px); object-fit: contain; border-radius: 50%; background: white; }
 .brand, .login-brand { align-items: center; }
 .page-heading h1 { font-size: clamp(1.8rem, 3vw, 2.5rem); line-height: 1.2; }
