@@ -38,6 +38,12 @@ async function loadAllRows(query: any) {
   return { data: rows, error: null };
 }
 
+function schoolDate(value: string) {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(value));
+  const part = (type: "year" | "month" | "day") => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 function formatDate(value: string) {
   return new Date(`${value}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -71,8 +77,6 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [teacherDetailsHidden, setTeacherDetailsHidden] = useState(false);
   const [dataError, setDataError] = useState("");
   const [totalStudents, setTotalStudents] = useState(0);
-  const [activeQuestionCount, setActiveQuestionCount] = useState(0);
-  const [activeQuestionSectionCount, setActiveQuestionSectionCount] = useState(0);
   const [totalEligibleEnrollments, setTotalEligibleEnrollments] = useState(0);
   const [submitted, setSubmitted] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -81,7 +85,6 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [toast, setToast] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const totalEligible = totalStudents;
   const nameParts = adminName.trim().split(/\s+/).filter((part) => part.length > 1);
   const adminInitials = nameParts.length > 1 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0] ?? "A").slice(0, 2).toUpperCase();
   const firstName = adminName.trim().split(/\s+/)[0] || adminName;
@@ -111,7 +114,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       if (!active) return;
       const periodsData = periodResult.data ?? [];
       const now = Date.now();
-      const mappedPeriods: Period[] = periodsData.map((p: any) => ({ id: p.id, name: p.name, semester: p.semester, schoolYear: p.school_year, start: p.starts_at.slice(0,10), end: p.ends_at.slice(0,10), status: p.is_open && Date.parse(p.starts_at) <= now && Date.parse(p.ends_at) >= now ? "Active" : Date.parse(p.starts_at) > now ? "Upcoming" : "Closed" }));
+      const mappedPeriods: Period[] = periodsData.map((p: any) => ({ id: p.id, name: p.name, semester: p.semester, schoolYear: p.school_year, start: schoolDate(p.starts_at), end: schoolDate(p.ends_at), status: p.is_open && Date.parse(p.starts_at) <= now && Date.parse(p.ends_at) >= now ? "Active" : Date.parse(p.starts_at) > now ? "Upcoming" : "Closed" }));
       setPeriods(mappedPeriods);
       const activePeriodId = (selectedPeriodId && mappedPeriods.some((p) => p.id === selectedPeriodId) ? selectedPeriodId : mappedPeriods.find((p) => p.status === "Active")?.id) ?? mappedPeriods[0]?.id ?? "";
       setSelectedPeriodId(activePeriodId);
@@ -189,13 +192,6 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       const submissionIds = new Set(periodSubmissions.map((s: any) => s.id));
       const periodCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId);
       const activeCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId && item.is_active);
-      const subjectSurveyCourseIds = new Set(activeCriteria.map((item: any) => item.course_id).filter(Boolean));
-      const courseSpecificCriteria = activeCriteria.filter((item: any) => item.course_id);
-      const standardCriteria = activeCriteria.filter((item: any) => !item.course_id);
-      const usesStandardSurvey = (courses as any[]).some((course: any) => !subjectSurveyCourseIds.has(course.id));
-      const effectiveCriteria = [...courseSpecificCriteria, ...(usesStandardSurvey ? standardCriteria : [])];
-      setActiveQuestionCount(effectiveCriteria.length);
-      setActiveQuestionSectionCount(new Set(effectiveCriteria.map((item: any) => item.section).filter(Boolean)).size);
       const periodRatings = (ratingResult.data ?? []).filter((item: any) => submissionIds.has(item.submission_id));
       const coursesById = new Map((courses as any[]).map((course: any) => [course.id, course]));
       const rankingByTeacher = new Map<string, { total: number; ratingCount: number; responses: Set<string>; perQuestion: Map<string, number[]>; comments: TeacherComment[]; byCourse: Map<string, { scoreTotal: number; rawTotalPoints: number; ratingCount: number; responses: number }> }>();
@@ -287,9 +283,9 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     const name = String(data.get("name") ?? "New evaluation period").trim();
     const semester = String(data.get("semester") ?? "1st Semester");
     const schoolYear = String(data.get("schoolYear") ?? "2026–2027");
-    void createClient().from("evaluation_periods").insert({ name, semester, school_year: schoolYear, starts_at: new Date(`${start}T00:00:00`).toISOString(), ends_at: new Date(`${end}T23:59:59`).toISOString(), is_open: false }).select("id,name,semester,school_year,starts_at,ends_at,is_open").single().then(({ data, error }) => {
+    void createClient().from("evaluation_periods").insert({ name, semester, school_year: schoolYear, starts_at: new Date(`${start}T00:00:00+08:00`).toISOString(), ends_at: new Date(`${end}T23:59:59+08:00`).toISOString(), is_open: false }).select("id,name,semester,school_year,starts_at,ends_at,is_open").single().then(({ data, error }) => {
       if (error) { setToast(`Could not create period: ${error.message}`); return; }
-      setPeriods((items) => [...items, { id: data.id, name: data.name, semester: data.semester, schoolYear: data.school_year, start: data.starts_at.slice(0,10), end: data.ends_at.slice(0,10), status: "Upcoming" }]);
+      setPeriods((items) => [...items, { id: data.id, name: data.name, semester: data.semester, schoolYear: data.school_year, start: schoolDate(data.starts_at), end: schoolDate(data.ends_at), status: "Upcoming" }]);
       setPeriodDialog(false); setToast("Evaluation period saved."); event.currentTarget.reset();
     });
   }
@@ -347,22 +343,19 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
           {page === "Overview" && <>
             <section className="page-heading">
               <div><p className="eyebrow"><span className="eyebrow__dot" /> {periods.find((period) => period.id === selectedPeriodId)?.schoolYear ?? "SCHOOL EVALUATIONS"} <span>·</span> {periods.find((period) => period.id === selectedPeriodId)?.semester ?? "ALL PERIODS"}</p><h1>Good morning, {firstName} <span className="heading__spark">✳</span></h1><p className="page-heading__description">{periods.find((period) => period.id === selectedPeriodId)?.name ?? "A live view of participation and faculty feedback across OLOPSC."}</p></div>
-              <button className="button button--primary" type="button" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button>
             </section>
             <section className="metric-grid" aria-label="Evaluation overview">
               <Metric title="Faculty assignments" value={String(teachers.length)} icon="♙" note="From assigned course roster" trend="Live data" />
-              <Metric title="Eligible students" value={totalEligible.toLocaleString()} icon="♧" note="Students enrolled for periods" trend="Live data" />
+              <Metric title="Eligible students" value={totalStudents.toLocaleString()} icon="♧" note="Students enrolled for period" trend="Live data" />
               <article className="metric-card"><div className="metric-card__top"><span>Submissions received</span><span className="metric-icon">✓</span></div><p className="metric-card__value">{submitted.toLocaleString()} <span className="metric-card__total">/ {totalEligibleEnrollments.toLocaleString()} eligible evaluations</span></p><Progress value={participation} light /><div className="metric-card__footer"><span>{participation}% participation</span><span className="trend">{loading ? "Loading" : "Live data"}</span></div></article>
-              <Metric title="Participation target" value="90%" icon="◎" note={`${Math.max(0, Math.ceil(totalEligible * 0.9 - submitted)).toLocaleString()} more submissions to reach target`} trend="School goal" />
             </section>
             <section className="overview-grid">
               <article className="panel periods-panel"><div className="panel-heading"><div><h2>Evaluation periods</h2><p>Active and upcoming school evaluation cycles</p></div><button className="text-link" onClick={() => changePage("Evaluation periods")}>View all <span>→</span></button></div>
                 {periods.slice(0, 2).map((period, index) => <PeriodRow key={period.id} period={period} activeProgress={index === 0 ? participation : undefined} onClick={() => changePage("Evaluation periods")} />)}
               </article>
-              <article className="panel activity-panel"><div className="panel-heading"><div><h2>Current evaluation activity</h2><p>Live details for the selected period</p></div><span className="live-indicator"><i /> Live</span></div><div className="activity-list"><Activity icon="♙" title="Faculty roster" detail={`${teachers.length} faculty assignments across ${programStats.length} programs`} time="Selected period" /><Activity icon="✓" tone="green" title={periods.find((period) => period.id === selectedPeriodId)?.name ?? "Evaluation period"} detail={`${submitted} of ${totalEligibleEnrollments} course evaluations submitted`} time={periods.find((period) => period.id === selectedPeriodId)?.status ?? "Current"} /><Activity icon="▣" tone="gold" title="Survey questionnaire" detail={`${activeQuestionCount} items across ${activeQuestionSectionCount} sections`} time="Selected period" /></div></article>
             </section>
             <ProgramTable programs={programStats} />
-            <section className="quick-actions"><strong>Quick actions</strong><button onClick={() => changePage("Teachers")}>♙ &nbsp;Browse teachers <span className="quick-actions__plus">→</span></button><button onClick={() => setPeriodDialog(true)}>◷ &nbsp;Open a new period <span className="quick-actions__plus">＋</span></button></section>
+            <section className="quick-actions"><strong>Quick actions</strong><button onClick={() => changePage("Teachers")}>♙ &nbsp;Browse teachers <span className="quick-actions__plus">→</span></button></section>
           </>}
 
           {page === "Evaluation periods" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> ACADEMIC YEAR 2026–2027</p><h1>Evaluation periods</h1><p className="page-heading__description">Plan and monitor the feedback cycles for your school.</p></div><button className="button button--primary" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button></div><div className="periods-list">{periods.map((period, index) => <article className="panel period-card" key={period.id}><div className={`period-card__calendar ${period.status === "Active" ? "period-card__calendar--active" : ""}`}><strong>{dateParts(period.start).day}</strong><span>{dateParts(period.start).month.toUpperCase()}</span></div><div className="period-card__main"><div className="period-row__title"><h2>{period.name}</h2><span className={`status ${period.status === "Active" ? "status--active" : "status--upcoming"}`}>{period.status}</span></div><p>{period.semester} · AY {period.schoolYear} · All academic programs</p><small>{formatDate(period.start)} – {formatDate(period.end)}, {period.schoolYear.split("–")[0]}</small>{index === 0 && <><div className="progress-caption"><span>Student participation</span><strong>{participation}%</strong></div><Progress value={participation} /></>}</div><button className="row-action" type="button" aria-label={`Open ${period.name}`} onClick={() => setToast(`${period.name} details selected.`)}>›</button></article>)}</div></section>}
@@ -394,10 +387,6 @@ function Metric({ title, value, icon, note, trend }: { title: string; value: str
 function PeriodRow({ period, activeProgress, onClick }: { period: Period; activeProgress?: number; onClick: () => void }) {
   const { day, month } = dateParts(period.start);
   return <div className={`period-row ${period.status === "Upcoming" ? "period-row--upcoming" : ""}`}><div className={`date-tile ${period.status === "Active" ? "date-tile--active" : ""}`}><strong>{day}</strong><span>{month.toUpperCase()}</span></div><div className="period-row__body"><div className="period-row__title"><strong>{period.name}</strong><span className={`status ${period.status === "Active" ? "status--active" : "status--upcoming"}`}>{period.status}</span></div><p>{period.semester} · AY {period.schoolYear}</p><small>{formatDate(period.start)} – {formatDate(period.end)}, {period.schoolYear.split("–")[0]} · All programs</small>{activeProgress !== undefined && <><div className="progress-caption"><span>Evaluation progress</span><strong>{activeProgress}%</strong></div><Progress value={activeProgress} /></>}</div><button className="row-action" type="button" aria-label={`View ${period.name}`} onClick={onClick}>›</button></div>;
-}
-
-function Activity({ icon, title, detail, time, tone = "" }: { icon: string; title: string; detail: string; time: string; tone?: string }) {
-  return <article className="activity-item"><span className={`activity-item__icon ${tone ? `activity-item__icon--${tone}` : ""}`}>{icon}</span><div><strong>{title}</strong><p>{detail}</p><small>{time}</small></div></article>;
 }
 
 function ProgramTable({ programs }: { programs: ProgramStats[] }) {
