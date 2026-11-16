@@ -49,6 +49,8 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [selectedRankedTeacher, setSelectedRankedTeacher] = useState("");
   const [dataError, setDataError] = useState("");
   const [totalStudents, setTotalStudents] = useState(0);
+  const [activeQuestionCount, setActiveQuestionCount] = useState(0);
+  const [activeQuestionSectionCount, setActiveQuestionSectionCount] = useState(0);
   const [totalEligibleEnrollments, setTotalEligibleEnrollments] = useState(0);
   const [submitted, setSubmitted] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -136,6 +138,8 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       const periodSubmissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
       const submissionIds = new Set(periodSubmissions.map((s: any) => s.id));
       const activeCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId && item.is_active);
+      setActiveQuestionCount(activeCriteria.length);
+      setActiveQuestionSectionCount(new Set(activeCriteria.map((item: any) => item.section).filter(Boolean)).size);
       const periodRatings = (ratingResult.data ?? []).filter((item: any) => submissionIds.has(item.submission_id));
       const coursesById = new Map((courses as any[]).map((course: any) => [course.id, course]));
       const rankingByTeacher = new Map<string, { total: number; ratingCount: number; responses: Set<string>; perQuestion: Map<string, number[]>; comments: TeacherComment[] }>();
@@ -266,7 +270,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
               <article className="panel periods-panel"><div className="panel-heading"><div><h2>Evaluation periods</h2><p>Active and upcoming school evaluation cycles</p></div><button className="text-link" onClick={() => changePage("Evaluation periods")}>View all <span>→</span></button></div>
                 {periods.slice(0, 2).map((period, index) => <PeriodRow key={period.id} period={period} activeProgress={index === 0 ? participation : undefined} onClick={() => changePage("Evaluation periods")} />)}
               </article>
-              <article className="panel activity-panel"><div className="panel-heading"><div><h2>Recent activity</h2><p>Latest updates in your workspace</p></div><span className="live-indicator"><i /> Live</span></div><div className="activity-list"><Activity icon="♙" title="Faculty roster is ready" detail="128 teachers across 3 programs" time="Today" /><Activity icon="✓" tone="green" title="Midterm evaluation is open" detail="Students can submit course feedback" time="Nov 2" /><Activity icon="▣" tone="gold" title="Evaluation criteria reviewed" detail="5 teaching practices in this form" time="Oct 30" /></div></article>
+              <article className="panel activity-panel"><div className="panel-heading"><div><h2>Current evaluation activity</h2><p>Live details for the selected period</p></div><span className="live-indicator"><i /> Live</span></div><div className="activity-list"><Activity icon="♙" title="Faculty roster" detail={`${teachers.length} faculty assignments across ${programStats.length} programs`} time="Selected period" /><Activity icon="✓" tone="green" title={periods.find((period) => period.id === selectedPeriodId)?.name ?? "Evaluation period"} detail={`${submitted} of ${totalEligibleEnrollments} course evaluations submitted`} time={periods.find((period) => period.id === selectedPeriodId)?.status ?? "Current"} /><Activity icon="▣" tone="gold" title="Survey questionnaire" detail={`${activeQuestionCount} items across ${activeQuestionSectionCount} sections`} time="Selected period" /></div></article>
             </section>
             <ProgramTable programs={programStats} />
             <section className="quick-actions"><strong>Quick actions</strong><button onClick={() => changePage("Teachers")}>♙ &nbsp;Browse teachers <span className="quick-actions__plus">→</span></button><button onClick={() => setPeriodDialog(true)}>◷ &nbsp;Open a new period <span className="quick-actions__plus">＋</span></button></section>
