@@ -98,7 +98,30 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
     setPage("My evaluations");
   }
 
+  function saveDraftInBackground(course: Course) {
+    if (!student.isSupabaseUser || !student.userId || !course.periodId) return;
+    const savedRatings = criteriaRows.flatMap((criterion, index) => ratings[index] ? [{ criterionId: criterion.id, rating: ratings[index] }] : []);
+    if (!savedRatings.length && !comment.trim()) return;
+    const courseId = String(course.id);
+    const updatedAt = new Date().toISOString();
+    setDraftStatus("saving");
+    void createClient().from("evaluation_drafts").upsert({
+      student_id: student.userId,
+      course_id: courseId,
+      period_id: course.periodId,
+      ratings: savedRatings.map((item) => ({ criterion_id: item.criterionId, rating: item.rating })),
+      comment: comment.trim() || null,
+      comment_anonymous: commentAnonymous,
+      updated_at: updatedAt,
+    }, { onConflict: "student_id,course_id,period_id" }).then(({ error }) => {
+      if (error) { setDraftStatus("error"); setToast("Your latest progress could not be saved. Please reopen the survey and try Save and continue later."); return; }
+      setDraftsByCourse((current) => ({ ...current, [courseId]: { ratings: savedRatings, comment: comment.trim(), anonymous: commentAnonymous, updatedAt } }));
+      setDraftStatus("saved");
+    });
+  }
+
   function changePage(nextPage: string) {
+    if (selectedCourse) saveDraftInBackground(selectedCourse);
     setPage(nextPage);
     setSelectedCourse(null);
     setEvaluationStep("guide");
@@ -299,7 +322,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
                 <article><span>03</span><div><strong>Pause and continue later</strong><p>Choose “Save and continue later” at any time. Your saved answers will be here when you return.</p></div></article>
                 <article><span>04</span><div><strong>Submit when every item is answered</strong><p>The overall rating is the points total divided by {criteria.length} questions, from 1.00 to 5.00.</p></div></article>
               </div>
-              <div className="form-actions"><button className="button button--secondary" type="button" onClick={() => setSelectedCourse(null)}>← Back to my evaluations</button><button className="button button--primary" type="button" onClick={() => setEvaluationStep("survey")}>Continue to survey <span>→</span></button></div>
+              <div className="form-actions"><button className="button button--secondary" type="button" onClick={() => { if (selectedCourse) saveDraftInBackground(selectedCourse); setSelectedCourse(null); }}>← Back to my evaluations</button><button className="button button--primary" type="button" onClick={() => setEvaluationStep("survey")}>Continue to survey <span>→</span></button></div>
             </article>
           </section>}
 
