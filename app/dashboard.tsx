@@ -2,19 +2,22 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { createClient } from "../lib/supabase/client";
+import QuestionnaireManager from "./questionnaire-manager";
 
-type Page = "Overview" | "Evaluation periods" | "Teachers" | "Students" | "Faculty results";
+type Page = "Overview" | "Evaluation periods" | "Subject questionnaires" | "Teachers" | "Students" | "Faculty results";
 type Teacher = { id: string; name: string; role: string; program: string; yearLevel: string; course: string; initials: string; evaluations: number };
 type Period = { id: string; name: string; semester: string; schoolYear: string; start: string; end: string; status: "Active" | "Upcoming" | "Closed" };
 type ProgramStats = { name: string; code: string; eligible: number; submitted: number };
-type TeacherQuestionScore = { prompt: string; section: string; average: number | null; responses: number };
+type TeacherQuestionScore = { prompt: string; section: string; course: string; average: number | null; responses: number };
+type TeacherSubjectScore = { course: string; average: number; totalPoints: number; possiblePoints: number; responses: number };
 type TeacherComment = { body: string; commenter: string; course: string; createdAt: string };
-type TeacherRanking = { name: string; average: number; totalPoints: number; possiblePoints: number; responses: number; questions: TeacherQuestionScore[]; comments: TeacherComment[] };
+type TeacherRanking = { name: string; average: number; totalPoints: number; possiblePoints: number; responses: number; subjectGrades: TeacherSubjectScore[]; questions: TeacherQuestionScore[]; comments: TeacherComment[] };
 type StudentRosterRow = { id: string; name: string; schoolId: string; program: string; yearLevel: string; courses: string[] };
 
 const navigation: { title: string; icon: string; group: string }[] = [
   { title: "Overview", icon: "⌂", group: "Workspace" },
   { title: "Evaluation periods", icon: "◷", group: "Workspace" },
+  { title: "Subject questionnaires", icon: "☷", group: "Evaluation" },
   { title: "Teachers", icon: "♙", group: "Management" },
   { title: "Students", icon: "♧", group: "Management" },
   { title: "Faculty results", icon: "▥", group: "Insights" },
@@ -95,7 +98,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         loadAllRows(db.from("student_records").select("student_id,school_student_id,year_level,program_id,programs(name,department)").order("student_id")),
         loadAllRows(db.from("student_enrollments").select("student_id,course_id,period_id").order("student_id").order("course_id").order("period_id")),
         loadAllRows(db.from("evaluation_submissions").select("id,student_id,course_id,period_id").order("id")),
-        loadAllRows(db.from("evaluation_criteria").select("id,prompt,section,sort_order,period_id,is_active").order("sort_order").order("id")),
+        loadAllRows(db.from("evaluation_criteria").select("id,course_id,prompt,section,sort_order,period_id,is_active").order("sort_order").order("id")),
         loadAllRows(db.from("evaluation_ratings").select("submission_id,criterion_id,rating").order("submission_id").order("criterion_id")),
         loadAllRows(db.from("evaluation_comments").select("id,body,professor_visible_name,course_id,period_id,created_at").order("created_at").order("id")),
       ]);
@@ -177,12 +180,18 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       setTeachers([...grouped.values()]);
       const periodSubmissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
       const submissionIds = new Set(periodSubmissions.map((s: any) => s.id));
+      const periodCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId);
       const activeCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId && item.is_active);
-      setActiveQuestionCount(activeCriteria.length);
-      setActiveQuestionSectionCount(new Set(activeCriteria.map((item: any) => item.section).filter(Boolean)).size);
+      const subjectSurveyCourseIds = new Set(activeCriteria.map((item: any) => item.course_id).filter(Boolean));
+      const courseSpecificCriteria = activeCriteria.filter((item: any) => item.course_id);
+      const standardCriteria = activeCriteria.filter((item: any) => !item.course_id);
+      const usesStandardSurvey = (courses as any[]).some((course: any) => !subjectSurveyCourseIds.has(course.id));
+      const effectiveCriteria = [...courseSpecificCriteria, ...(usesStandardSurvey ? standardCriteria : [])];
+      setActiveQuestionCount(effectiveCriteria.length);
+      setActiveQuestionSectionCount(new Set(effectiveCriteria.map((item: any) => item.section).filter(Boolean)).size);
       const periodRatings = (ratingResult.data ?? []).filter((item: any) => submissionIds.has(item.submission_id));
       const coursesById = new Map((courses as any[]).map((course: any) => [course.id, course]));
-      const rankingByTeacher = new Map<string, { total: number; ratingCount: number; responses: Set<string>; perQuestion: Map<string, number[]>; comments: TeacherComment[] }>();
+      const rankingByTeacher = new Map<string, { total: number; ratingCount: number; responses: Set<string>; perQuestion: Map<string, number[]>; comments: TeacherComment[]; byCourse: Map<string, { scoreTotal: number; rawTotalPoints: number; ratingCount: number; responses: number }> }>();
       const ratingsBySubmission = new Map<string, any[]>();
       for (const rating of periodRatings as any[]) ratingsBySubmission.set(rating.submission_id, [...(ratingsBySubmission.get(rating.submission_id) ?? []), rating]);
       const peopleByCourse = new Map<string, string[]>();
@@ -191,13 +200,22 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         const names = peopleByCourse.get(submission.course_id) ?? [];
         const responseRatings = ratingsBySubmission.get(submission.id) ?? [];
         for (const name of names) {
-          const entry = rankingByTeacher.get(name) ?? { total: 0, ratingCount: 0, responses: new Set<string>(), perQuestion: new Map<string, number[]>(), comments: [] };
+          const entry = rankingByTeacher.get(name) ?? { total: 0, ratingCount: 0, responses: new Set<string>(), perQuestion: new Map<string, number[]>(), comments: [], byCourse: new Map<string, { scoreTotal: number; rawTotalPoints: number; ratingCount: number; responses: number }>() };
           entry.responses.add(submission.id);
+          const courseScore = entry.byCourse.get(submission.course_id) ?? { scoreTotal: 0, rawTotalPoints: 0, ratingCount: 0, responses: 0 };
+          if (responseRatings.length) {
+            courseScore.scoreTotal += responseRatings.reduce((sum, rating) => sum + Number(rating.rating), 0) / responseRatings.length;
+            courseScore.responses++;
+          }
           for (const rating of responseRatings) {
             entry.total += Number(rating.rating);
             entry.ratingCount++;
-            entry.perQuestion.set(rating.criterion_id, [...(entry.perQuestion.get(rating.criterion_id) ?? []), Number(rating.rating)]);
+            courseScore.rawTotalPoints += Number(rating.rating);
+            courseScore.ratingCount++;
+            const questionKey = `${submission.course_id}::${rating.criterion_id}`;
+            entry.perQuestion.set(questionKey, [...(entry.perQuestion.get(questionKey) ?? []), Number(rating.rating)]);
           }
+          entry.byCourse.set(submission.course_id, courseScore);
           rankingByTeacher.set(name, entry);
         }
       }
@@ -213,13 +231,32 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         .filter(([, entry]) => entry.ratingCount > 0)
         .map(([name, entry]) => ({
           name,
-          average: entry.total / entry.ratingCount,
+          average: [...entry.byCourse.values()].filter((score) => score.responses > 0).reduce((sum, score) => sum + score.scoreTotal / score.responses, 0) / [...entry.byCourse.values()].filter((score) => score.responses > 0).length,
           totalPoints: entry.total,
           possiblePoints: entry.ratingCount * 5,
           responses: entry.responses.size,
-          questions: activeCriteria.map((criterion: any) => {
-            const values = entry.perQuestion.get(criterion.id) ?? [];
-            return { prompt: criterion.prompt, section: criterion.section ?? "", average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null, responses: values.length };
+          subjectGrades: [...entry.byCourse.entries()].flatMap(([courseId, score]) => {
+            const course: any = coursesById.get(courseId);
+            return score.responses ? [{ course: `${course?.code ?? ""} · ${course?.name ?? "Course"}`, average: score.scoreTotal / score.responses, totalPoints: score.rawTotalPoints, possiblePoints: score.ratingCount * 5, responses: score.responses }] : [];
+          }),
+          questions: [...entry.byCourse.keys()].flatMap((courseId) => {
+            const course: any = coursesById.get(courseId);
+            const courseLabel = course ? `${course.code} · ${course.name}` : "Course";
+            const customSurvey = activeCriteria.filter((criterion: any) => criterion.course_id === courseId);
+            const effectiveSurvey = customSurvey.length ? customSurvey : activeCriteria.filter((criterion: any) => !criterion.course_id);
+            const effectiveIds = new Set(effectiveSurvey.map((criterion: any) => criterion.id));
+            const historicalIds = [...entry.perQuestion.keys()].flatMap((key) => {
+              const [ratedCourseId, criterionId] = key.split("::");
+              return ratedCourseId === courseId && !effectiveIds.has(criterionId) ? [criterionId] : [];
+            });
+            const criteriaById = new Map(periodCriteria.map((criterion: any) => [criterion.id, criterion]));
+            const questionIds = [...new Set([...effectiveSurvey.map((criterion: any) => criterion.id), ...historicalIds])];
+            return questionIds.flatMap((criterionId) => {
+              const criterion: any = criteriaById.get(criterionId);
+              if (!criterion) return [];
+              const values = entry.perQuestion.get(`${courseId}::${criterionId}`) ?? [];
+              return [{ prompt: criterion.prompt, section: criterion.section ?? "", course: `${courseLabel}${effectiveIds.has(criterionId) ? " · Active survey" : " · Earlier survey"}`, average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null, responses: values.length }];
+            });
           }),
           comments: entry.comments.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
         }))
@@ -323,6 +360,8 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
 
           {page === "Evaluation periods" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> ACADEMIC YEAR 2026–2027</p><h1>Evaluation periods</h1><p className="page-heading__description">Plan and monitor the feedback cycles for your school.</p></div><button className="button button--primary" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button></div><div className="periods-list">{periods.map((period, index) => <article className="panel period-card" key={period.id}><div className={`period-card__calendar ${period.status === "Active" ? "period-card__calendar--active" : ""}`}><strong>{dateParts(period.start).day}</strong><span>{dateParts(period.start).month.toUpperCase()}</span></div><div className="period-card__main"><div className="period-row__title"><h2>{period.name}</h2><span className={`status ${period.status === "Active" ? "status--active" : "status--upcoming"}`}>{period.status}</span></div><p>{period.semester} · AY {period.schoolYear} · All academic programs</p><small>{formatDate(period.start)} – {formatDate(period.end)}, {period.schoolYear.split("–")[0]}</small>{index === 0 && <><div className="progress-caption"><span>Student participation</span><strong>{participation}%</strong></div><Progress value={participation} /></>}</div><button className="row-action" type="button" aria-label={`Open ${period.name}`} onClick={() => setToast(`${period.name} details selected.`)}>›</button></article>)}</div></section>}
 
+          {page === "Subject questionnaires" && <QuestionnaireManager />}
+
           {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty assignments grouped by course and enrolled student year level.</p></div></div><DirectoryTable search={search} teachers={teachers} onViewResults={(name) => { selectRankedTeacher(name); changePage("Faculty results"); }} /></section>}
 
           {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">View student accounts, assigned program and year, and courses for the selected evaluation period.</p></div></div><ProgramTable programs={programStats} /><StudentRosterTable search={search} periodName={periods.find((period) => period.id === selectedPeriodId)?.name ?? "Selected period"} students={studentRoster} /></section>}
@@ -361,12 +400,12 @@ function ProgramTable({ programs }: { programs: ProgramStats[] }) {
 function EvaluationRanking({ rankings, selectedTeacher, onSelectTeacher, detailsHidden, onToggleDetails }: { rankings: TeacherRanking[]; selectedTeacher: string; onSelectTeacher: (name: string) => void; detailsHidden: boolean; onToggleDetails: () => void }) {
   const selected = rankings.find((ranking) => ranking.name === selectedTeacher) ?? (selectedTeacher ? undefined : rankings[0]);
   return <section className="panel evaluation-results-panel">
-    <div className="panel-heading"><div><h2>Professor rankings</h2><p>Sorted by average score. Total points and question averages use submitted ratings only.</p></div></div>
+    <div className="panel-heading"><div><h2>Professor rankings</h2><p>Each subject gets its own average. A professor’s overall score is the mean of their subject averages, with each subject weighted equally.</p></div></div>
     {rankings.length ? <>
-      <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Professor</th><th>Average rating</th><th>Total points</th><th>Evaluations</th><th>Comments</th><th>Details</th></tr></thead><tbody>{rankings.map((ranking, index) => <tr key={ranking.name} className={ranking.name === selected?.name ? "is-selected" : ""}><td>{index + 1}</td><td><strong>{ranking.name}</strong></td><td><strong>{ranking.average.toFixed(2)} / 5</strong></td><td>{ranking.totalPoints} / {ranking.possiblePoints}</td><td>{ranking.responses}</td><td>{ranking.comments.length}</td><td><button className="text-link" type="button" onClick={() => onSelectTeacher(ranking.name)} aria-label={`View statistics and comments for ${ranking.name}`}>View details →</button></td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Professor</th><th>Average rating</th><th>Points collected</th><th>Evaluations</th><th>Comments</th><th>Details</th></tr></thead><tbody>{rankings.map((ranking, index) => <tr key={ranking.name} className={ranking.name === selected?.name ? "is-selected" : ""}><td>{index + 1}</td><td><strong>{ranking.name}</strong></td><td><strong>{ranking.average.toFixed(2)} / 5</strong></td><td>{ranking.totalPoints} / {ranking.possiblePoints}</td><td>{ranking.responses}</td><td>{ranking.comments.length}</td><td><button className="text-link" type="button" onClick={() => onSelectTeacher(ranking.name)} aria-label={`View statistics and comments for ${ranking.name}`}>View details →</button></td></tr>)}</tbody></table></div>
       {selected && <div className="evaluation-results-detail">
         <div className="evaluation-results-detail__heading"><div><h3>{selected.name}: evaluation details</h3>{detailsHidden ? <p>Professor statistics and comments are hidden.</p> : <p>Overall rating: <strong>{selected.average.toFixed(2)} / 5</strong> · {selected.responses} completed {selected.responses === 1 ? "evaluation" : "evaluations"} · {selected.comments.length} {selected.comments.length === 1 ? "comment" : "comments"}</p>}</div><div className="evaluation-results-detail__actions"><label>View professor<select value={selected.name} onChange={(event) => onSelectTeacher(event.target.value)}>{rankings.map((ranking) => <option key={ranking.name} value={ranking.name}>{ranking.name} · {ranking.average.toFixed(2)} / 5</option>)}</select></label><button className="button button--secondary button--small" type="button" onClick={onToggleDetails} aria-expanded={!detailsHidden} aria-controls="professor-results-details">{detailsHidden ? "Show details" : "Hide details"}</button></div></div>
-        <div id="professor-results-details" hidden={detailsHidden}><div className="table-scroll"><table className="question-average-table"><thead><tr><th>Question</th><th>Average</th><th>Responses</th></tr></thead><tbody>{selected.questions.map((question, index) => <tr key={`${index}-${question.prompt}`}><td><small>{question.section}</small><span>{String(index + 1).padStart(2, "0")}. {question.prompt}</span></td><td>{question.average === null ? "—" : `${question.average.toFixed(2)} / 5`}</td><td>{question.responses}</td></tr>)}</tbody></table></div>
+        <div id="professor-results-details" hidden={detailsHidden}><div className="table-scroll"><table className="question-average-table"><thead><tr><th>Course grade (submitted surveys)</th><th>Average</th><th>Points collected</th><th>Submitted surveys</th></tr></thead><tbody>{selected.subjectGrades.map((subject) => <tr key={subject.course}><td><strong>{subject.course}</strong></td><td><strong>{subject.average.toFixed(2)} / 5</strong></td><td>{subject.totalPoints} / {subject.possiblePoints}</td><td>{subject.responses}</td></tr>)}</tbody></table></div><p className="section-copy">Final professor grade = the average of the course grades shown above. Only submitted surveys count.</p><div className="table-scroll"><table className="question-average-table"><thead><tr><th>Subject / question</th><th>Average</th><th>Responses</th></tr></thead><tbody>{selected.questions.map((question, index) => <tr key={`${index}-${question.prompt}`}><td><small>{question.course} · {question.section}</small><span>{String(index + 1).padStart(2, "0")}. {question.prompt}</span></td><td>{question.average === null ? "—" : `${question.average.toFixed(2)} / 5`}</td><td>{question.responses}</td></tr>)}</tbody></table></div>
         <div className="evaluation-comments-results"><h3>Student comments</h3>{selected.comments.length ? selected.comments.map((comment, index) => <article className="evaluation-comment-result" key={`${comment.createdAt}-${index}`}><div><strong>{comment.commenter}</strong><small>{comment.course} · {new Date(comment.createdAt).toLocaleDateString()}</small></div><p>{comment.body}</p></article>) : <p className="empty-state">No comments were submitted for this professor in this period.</p>}</div></div>
       </div>}
       {!selected && selectedTeacher && <div className="evaluation-results-detail"><p className="empty-state">No completed evaluations are available for {selectedTeacher} in this period yet.</p></div>}

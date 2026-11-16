@@ -45,7 +45,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
           const [professorResult, directoryInstructorResult, criterionResult, submissionResult, programNamesResult, draftResult] = await Promise.all([
             courseIds.length ? supabase.from("course_professors").select("course_id, professor_id, profiles(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
             courseIds.length ? supabase.from("course_instructors").select("course_id, instructors(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
-            supabase.from("evaluation_criteria").select("id, prompt, section, survey_group").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
+            supabase.from("evaluation_criteria").select("id, course_id, prompt, section, survey_group, sort_order").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
             supabase.from("evaluation_submissions").select("course_id").eq("student_id", user.id).eq("period_id", period.id),
             supabase.from("programs").select("id, name, department"),
             supabase.from("evaluation_drafts").select("course_id, ratings, comment, comment_anonymous, updated_at").eq("student_id", user.id).eq("period_id", period.id),
@@ -65,12 +65,17 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
           }
           const programNames = new Map((programNamesResult.data ?? []).map((p: any) => [p.id, [...new Set([p.department, p.name].filter(Boolean))].join(" · ")]));
           const draftsByCourse = new Map((draftResult.data ?? []).map((draft: any) => [draft.course_id, draft]));
+          const allCriteria = criterionResult.data ?? [];
+          const globalCriteria = allCriteria.filter((criterion: any) => !criterion.course_id);
+          const mapCriteria = (rows: any[]) => rows.map((criterion: any) => ({ id: criterion.id, prompt: criterion.prompt, section: criterion.section, surveyGroup: criterion.survey_group }));
           courses = courseRows.map((course: any) => {
             const teacher = instructorsByCourse.get(course.id)?.join(", ") ?? "Professor not assigned";
             const draft: any = draftsByCourse.get(course.id);
-            return { id: course.id, periodId: period.id, course: course.name, code: course.code, teacher, initials: teacher.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase(), program: String(programNames.get(course.program_id) ?? "OLOPSC"), draftRatings: (draft?.ratings ?? []).map((rating: any) => ({ criterionId: rating.criterion_id ?? rating.criterionId, rating: Number(rating.rating) })), draftComment: draft?.comment ?? "", draftCommentAnonymous: draft?.comment_anonymous ?? true, draftUpdatedAt: draft?.updated_at ?? "" };
+            const subjectCriteria = allCriteria.filter((criterion: any) => criterion.course_id === course.id);
+            const criteria = mapCriteria(subjectCriteria.length ? subjectCriteria : globalCriteria);
+            return { id: course.id, periodId: period.id, course: course.name, code: course.code, teacher, initials: teacher.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase(), program: String(programNames.get(course.program_id) ?? "OLOPSC"), criteria, draftRatings: (draft?.ratings ?? []).map((rating: any) => ({ criterionId: rating.criterion_id ?? rating.criterionId, rating: Number(rating.rating) })), draftComment: draft?.comment ?? "", draftCommentAnonymous: draft?.comment_anonymous ?? true, draftUpdatedAt: draft?.updated_at ?? "" };
           });
-          criteria = (criterionResult.data ?? []).map((criterion: any) => ({ id: criterion.id, prompt: criterion.prompt, section: criterion.section, surveyGroup: criterion.survey_group }));
+          criteria = mapCriteria(globalCriteria);
           completedCourseIds = (submissionResult.data ?? []).map((row: any) => row.course_id);
         }
         const enrollmentDate = record.enrollment_date ? new Date(`${record.enrollment_date}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : "Not provided";

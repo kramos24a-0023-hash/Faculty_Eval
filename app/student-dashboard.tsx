@@ -11,6 +11,7 @@ export type Course = {
   teacher: string;
   initials: string;
   program: string;
+  criteria?: { id: string; prompt: string; section?: string; surveyGroup?: string }[];
   draftRatings?: { criterionId: string; rating: number }[];
   draftComment?: string;
   draftCommentAnonymous?: boolean;
@@ -46,11 +47,11 @@ const navItems = [
 
 export default function StudentDashboard({ student, onLogout }: { student: StudentAccess; onLogout: () => void }) {
   const courses = student.courses ?? [];
-  const criteriaRows = student.criteria ?? [];
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const criteriaRows = selectedCourse?.criteria ?? student.criteria ?? [];
   const criteria = criteriaRows.map((criterion) => criterion.prompt);
   const surveyGroups = Array.from(new Set(criteriaRows.map((criterion) => criterion.surveyGroup ?? criterion.section ?? "Faculty evaluation"))).map((name) => ({ name, items: criteriaRows.map((criterion, index) => ({ criterion, index })).filter(({ criterion }) => (criterion.surveyGroup ?? criterion.section ?? "Faculty evaluation") === name) }));
   const [page, setPage] = useState("Overview");
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [evaluationStep, setEvaluationStep] = useState<"guide" | "survey">("guide");
   const [ratings, setRatings] = useState<Record<number, number>>({});
   const [showValidation, setShowValidation] = useState(false);
@@ -82,7 +83,8 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
     setSelectedCourse(course);
     const savedDraft = draftsByCourse[String(course.id)];
     const draftRatings = savedDraft?.ratings ?? course.draftRatings ?? [];
-    const restoredRatings = Object.fromEntries(criteriaRows.flatMap((criterion, index) => {
+    const courseCriteria = course.criteria ?? student.criteria ?? [];
+    const restoredRatings = Object.fromEntries(courseCriteria.flatMap((criterion, index) => {
       const saved = draftRatings.find((item) => item.criterionId === criterion.id);
       return saved ? [[index, saved.rating]] : [];
     }));
@@ -271,11 +273,11 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
             </section>
 
             <section className="student-section-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> {student.periodName ?? "MIDTERM · 1ST SEMESTER"}</p><h2>Your course evaluations</h2><p>Complete one short evaluation for each course below.</p></div><span className="status status--active">{student.periodEnd ? `Open until ${new Date(student.periodEnd).toLocaleDateString()}` : "Open until Nov 27"}</span></section>
-            {courses.length ? <div className="student-course-list">{courses.map((course) => <StudentCourseCard key={course.id} course={course} complete={completedIds.includes(String(course.id))} draft={draftsByCourse[String(course.id)] ?? (course.draftUpdatedAt ? { ratings: course.draftRatings ?? [], updatedAt: course.draftUpdatedAt } : undefined)} questionCount={criteria.length} onStart={() => openCourse(course)} />)}</div> : <div className="professor-no-results"><strong>No courses are assigned to your account yet.</strong><p>Ask your school administrator to add your current enrollment.</p></div>}
+            {courses.length ? <div className="student-course-list">{courses.map((course) => <StudentCourseCard key={course.id} course={course} complete={completedIds.includes(String(course.id))} draft={draftsByCourse[String(course.id)] ?? (course.draftUpdatedAt ? { ratings: course.draftRatings ?? [], updatedAt: course.draftUpdatedAt } : undefined)} questionCount={(course.criteria ?? student.criteria ?? []).length} onStart={() => openCourse(course)} />)}</div> : <div className="professor-no-results"><strong>No courses are assigned to your account yet.</strong><p>Ask your school administrator to add your current enrollment.</p></div>}
             <p className="student-footer-note">Your honest, respectful feedback helps teachers reflect on what is working well and where they can improve.</p>
           </>}
 
-          {page === "My evaluations" && !selectedCourse && <section className="subpage"><div className="student-section-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> MIDTERM · 1ST SEMESTER</p><h1>My evaluations</h1><p>Pick up a saved draft or start a course evaluation.</p></div><span className="status status--active">{student.periodName ?? "Midterm · 1st semester"}{student.periodEnd ? ` · ${new Date(student.periodEnd).toLocaleDateString()}` : " · Open until Nov 27"}</span></div><div className="student-course-list">{courses.map((course) => <StudentCourseCard key={course.id} course={course} complete={completedIds.includes(String(course.id))} draft={draftsByCourse[String(course.id)] ?? (course.draftUpdatedAt ? { ratings: course.draftRatings ?? [], updatedAt: course.draftUpdatedAt } : undefined)} questionCount={criteria.length} onStart={() => openCourse(course)} />)}</div></section>}
+          {page === "My evaluations" && !selectedCourse && <section className="subpage"><div className="student-section-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> MIDTERM · 1ST SEMESTER</p><h1>My evaluations</h1><p>Pick up a saved draft or start a course evaluation.</p></div><span className="status status--active">{student.periodName ?? "Midterm · 1st semester"}{student.periodEnd ? ` · ${new Date(student.periodEnd).toLocaleDateString()}` : " · Open until Nov 27"}</span></div><div className="student-course-list">{courses.map((course) => <StudentCourseCard key={course.id} course={course} complete={completedIds.includes(String(course.id))} draft={draftsByCourse[String(course.id)] ?? (course.draftUpdatedAt ? { ratings: course.draftRatings ?? [], updatedAt: course.draftUpdatedAt } : undefined)} questionCount={(course.criteria ?? student.criteria ?? []).length} onStart={() => openCourse(course)} />)}</div></section>}
 
           {page === "How it works" && <section className="subpage"><div className="student-section-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> STUDENT GUIDE</p><h1>How evaluations work</h1><p>A few simple steps for useful, respectful feedback.</p></div></div><div className="student-guide-grid"><article className="panel student-guide-card"><span>01</span><h2>Think about the whole semester</h2><p>Reflect on your experiences in the course, not just one recent class or assignment.</p></article><article className="panel student-guide-card"><span>02</span><h2>Rate each statement</h2><p>Choose the response that best describes your experience. There are no right or wrong answers.</p></article><article className="panel student-guide-card"><span>03</span><h2>Keep comments constructive</h2><p>Specific, respectful examples help teachers understand what supports your learning.</p></article></div></section>}
 
