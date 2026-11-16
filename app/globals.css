@@ -406,6 +406,27 @@ small, kbd { font-size: max(13px, 0.875em); line-height: 1.45; }
 .panel-heading h2, .period-row__title h2 { font-size: clamp(1.1rem, 1.6vw, 1.35rem); }
 body, button, input, select, textarea { text-rendering: optimizeLegibility; }
 :focus-visible { outline: 3px solid #ffdf70; outline-offset: 3px; }
+/* Keep reading text comfortably legible even where component styles set small labels. */
+body :is(p, li, td, th, label, button, input, select, textarea, legend, .nav-item, .text-link,
+  .metric-card__top, .metric-card__footer, .trend, .status, .page-footer, .activity-item p,
+  .activity-item small, .program-cell small, .period-row__body > p, .period-row__body > small,
+  .period-card__main > p, .period-card__main > small, .course-card__program,
+  .course-card__teacher, .course-card__footer, .student-welcome__meta,
+  .student-metric small, .student-metric p, .student-course-card__eyebrow,
+  .student-course-card__info > p, .student-footer-note, .student-guide-card p,
+  .student-profile-detail small, .student-profile-detail strong,
+  .student-profile-course > div > small, .student-profile-course__professor strong,
+  .professor-search input, .professor-search button, .professor-search-hint,
+  .program-result-group__header > span, .professor-result__teacher strong,
+  .professor-no-results p, .survey-guide-steps strong, .survey-guide-steps p,
+  .survey-validation p, .survey-validation strong) { font-size: max(15px, 0.94em) !important; line-height: 1.5; }
+body :is(small, kbd, .eyebrow, .nav-label, .login-overline, .secure-label,
+  .login-panel__school, .professor-result__course small, .professor-result__teacher small,
+  .student-profile-course__professor small, .student-profile-course > div > small) {
+  font-size: max(14px, 0.86em) !important;
+  line-height: 1.4;
+}
+body :is(h1, h2, h3, .page-heading h1, .panel-heading h2) { line-height: 1.3; }
 @media (max-width: 650px) {
   body { font-size: 15px; }
   .content { padding-inline: clamp(14px, 4vw, 24px); }

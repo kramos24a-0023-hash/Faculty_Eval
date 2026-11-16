@@ -44,6 +44,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [dataError, setDataError] = useState("");
   const [totalStudents, setTotalStudents] = useState(0);
+  const [totalEligibleEnrollments, setTotalEligibleEnrollments] = useState(0);
   const [submitted, setSubmitted] = useState(0);
   const [loading, setLoading] = useState(true);
   const [periodDialog, setPeriodDialog] = useState(false);
@@ -55,7 +56,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const nameParts = adminName.trim().split(/\s+/).filter((part) => part.length > 1);
   const adminInitials = nameParts.length > 1 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0] ?? "A").slice(0, 2).toUpperCase();
   const firstName = adminName.trim().split(/\s+/)[0] || adminName;
-  const participation = totalEligible ? Math.round((submitted / totalEligible) * 1000) / 10 : 0;
+  const participation = totalEligibleEnrollments ? Math.min(100, Math.round((submitted / totalEligibleEnrollments) * 1000) / 10) : 0;
   const filteredTeachers = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
 
   useEffect(() => {
@@ -84,7 +85,8 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       const enrollments = (enrollmentResult.data ?? []).filter((e: any) => e.period_id === activePeriodId);
       const submissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
       const courses = courseResult.data ?? [];
-      setTotalStudents(enrollments.length);
+      setTotalStudents(new Set(enrollments.map((e: any) => e.student_id)).size);
+      setTotalEligibleEnrollments(enrollments.length);
       setSubmitted(submissions.length);
       const stats = new Map<string, ProgramStats>();
       for (const e of enrollments as any[]) {
@@ -201,7 +203,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
             <section className="metric-grid" aria-label="Evaluation overview">
               <Metric title="Faculty assignments" value={String(teachers.length)} icon="♙" note="From assigned course roster" trend="Live data" />
               <Metric title="Eligible students" value={totalEligible.toLocaleString()} icon="♧" note="Students enrolled for periods" trend="Live data" />
-              <article className="metric-card"><div className="metric-card__top"><span>Submissions received</span><span className="metric-icon">✓</span></div><p className="metric-card__value">{submitted.toLocaleString()} <span className="metric-card__total">/ {totalEligible.toLocaleString()}</span></p><Progress value={participation} light /><div className="metric-card__footer"><span>{participation}% participation</span><span className="trend">{loading ? "Loading" : "Live data"}</span></div></article>
+              <article className="metric-card"><div className="metric-card__top"><span>Submissions received</span><span className="metric-icon">✓</span></div><p className="metric-card__value">{submitted.toLocaleString()} <span className="metric-card__total">/ {totalEligibleEnrollments.toLocaleString()} eligible evaluations</span></p><Progress value={participation} light /><div className="metric-card__footer"><span>{participation}% participation</span><span className="trend">{loading ? "Loading" : "Live data"}</span></div></article>
               <Metric title="Participation target" value="90%" icon="◎" note={`${Math.max(0, Math.ceil(totalEligible * 0.9 - submitted)).toLocaleString()} more submissions to reach target`} trend="School goal" />
             </section>
             <section className="overview-grid">
