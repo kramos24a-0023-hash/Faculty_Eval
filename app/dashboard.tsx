@@ -158,8 +158,8 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     <div className="app-shell">
       <aside className={`sidebar ${mobileNavOpen ? "is-open" : ""}`}>
         <a className="brand" href="#overview" onClick={(event) => { event.preventDefault(); changePage("Overview"); }}>
-          <img className="brand__logo" src="/olopsc-bmse-logo.webp" alt="" />
-          <span className="brand__identity"><strong>Our Lady Of Perpetual Succor College of Business Management, Science and Education</strong><small>FACULTY EVALUATION SYSTEM</small></span>
+          <span className="brand__top"><img className="brand__logo" src="/olopsc-bmse-logo.webp" alt="" /><span className="brand__identity"><strong>OLOPSC</strong><small>FACULTY EVALUATION SYSTEM</small></span></span>
+          <span className="brand__college">Our Lady Of Perpetual Succor College of Business Management, Science and Education</span>
         </a>
         <div className="workspace-switch"><span className="workspace-switch__icon">◈</span><span><strong>Admin workspace</strong><small>Institution management</small></span><span className="muted">⌄</span></div>
         <nav className="primary-nav" aria-label="Main navigation">
