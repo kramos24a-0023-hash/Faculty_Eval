@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createClient } from "../lib/supabase/client";
 
-type Page = "Overview" | "Evaluation periods" | "Teachers" | "Students" | "Reports";
+type Page = "Overview" | "Evaluation periods" | "Teachers" | "Students" | "Faculty results";
 type Teacher = { id: string; name: string; role: string; program: string; yearLevel: string; course: string; initials: string; evaluations: number };
 type Period = { id: string; name: string; semester: string; schoolYear: string; start: string; end: string; status: "Active" | "Upcoming" | "Closed" };
 type ProgramStats = { name: string; code: string; eligible: number; submitted: number };
@@ -16,8 +16,21 @@ const navigation: { title: string; icon: string; group: string }[] = [
   { title: "Evaluation periods", icon: "◷", group: "Workspace" },
   { title: "Teachers", icon: "♙", group: "Management" },
   { title: "Students", icon: "♧", group: "Management" },
-  { title: "Reports", icon: "▥", group: "Insights" },
+  { title: "Faculty results", icon: "▥", group: "Insights" },
 ];
+
+async function loadAllRows(query: any) {
+  const pageSize = 500;
+  const rows: any[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return { data: rows, error: null };
+}
 
 function formatDate(value: string) {
   return new Date(`${value}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -71,16 +84,16 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     async function loadDashboard() {
       const db = createClient();
       const [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult] = await Promise.all([
-        db.from("evaluation_periods").select("id,name,semester,school_year,starts_at,ends_at,is_open").order("starts_at", { ascending: false }),
-        db.from("courses").select("id,code,name,program_id,programs(name,department)"),
-        db.from("course_instructors").select("course_id,instructors(full_name)"),
-        db.from("course_professors").select("course_id,profiles(full_name,role)"),
-        db.from("student_records").select("student_id,year_level,program_id,programs(name)"),
-        db.from("student_enrollments").select("student_id,course_id,period_id"),
-        db.from("evaluation_submissions").select("id,student_id,course_id,period_id"),
-        db.from("evaluation_criteria").select("id,prompt,section,sort_order,period_id,is_active").order("sort_order"),
-        db.from("evaluation_ratings").select("submission_id,criterion_id,rating"),
-        db.from("evaluation_comments").select("body,professor_visible_name,course_id,period_id,created_at"),
+        loadAllRows(db.from("evaluation_periods").select("id,name,semester,school_year,starts_at,ends_at,is_open").order("starts_at", { ascending: false }).order("id")),
+        loadAllRows(db.from("courses").select("id,code,name,program_id,programs(name,department)").order("id")),
+        loadAllRows(db.from("course_instructors").select("course_id,instructors(full_name)").order("course_id").order("instructor_id")),
+        loadAllRows(db.from("course_professors").select("course_id,profiles(full_name,role)").order("course_id").order("professor_id")),
+        loadAllRows(db.from("student_records").select("student_id,year_level,program_id,programs(name)").order("student_id")),
+        loadAllRows(db.from("student_enrollments").select("student_id,course_id,period_id").order("student_id").order("course_id").order("period_id")),
+        loadAllRows(db.from("evaluation_submissions").select("id,student_id,course_id,period_id").order("id")),
+        loadAllRows(db.from("evaluation_criteria").select("id,prompt,section,sort_order,period_id,is_active").order("sort_order").order("id")),
+        loadAllRows(db.from("evaluation_ratings").select("submission_id,criterion_id,rating").order("submission_id").order("criterion_id")),
+        loadAllRows(db.from("evaluation_comments").select("id,body,professor_visible_name,course_id,period_id,created_at").order("created_at").order("id")),
       ]);
       const failed = [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult].find((result) => result.error);
       if (failed?.error) { if (active) { setDataError(`Could not load admin data: ${failed.error.message}`); setLoading(false); } return; }
@@ -278,11 +291,11 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
 
           {page === "Evaluation periods" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> ACADEMIC YEAR 2026–2027</p><h1>Evaluation periods</h1><p className="page-heading__description">Plan and monitor the feedback cycles for your school.</p></div><button className="button button--primary" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button></div><div className="periods-list">{periods.map((period, index) => <article className="panel period-card" key={period.id}><div className={`period-card__calendar ${period.status === "Active" ? "period-card__calendar--active" : ""}`}><strong>{dateParts(period.start).day}</strong><span>{dateParts(period.start).month.toUpperCase()}</span></div><div className="period-card__main"><div className="period-row__title"><h2>{period.name}</h2><span className={`status ${period.status === "Active" ? "status--active" : "status--upcoming"}`}>{period.status}</span></div><p>{period.semester} · AY {period.schoolYear} · All academic programs</p><small>{formatDate(period.start)} – {formatDate(period.end)}, {period.schoolYear.split("–")[0]}</small>{index === 0 && <><div className="progress-caption"><span>Student participation</span><strong>{participation}%</strong></div><Progress value={participation} /></>}</div><button className="row-action" type="button" aria-label={`Open ${period.name}`} onClick={() => setToast(`${period.name} details selected.`)}>›</button></article>)}</div></section>}
 
-          {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty assignments grouped by course and enrolled student year level.</p></div></div><DirectoryTable search={search} teachers={teachers} /></section>}
+          {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty assignments grouped by course and enrolled student year level.</p></div></div><DirectoryTable search={search} teachers={teachers} onViewResults={(name) => { setSelectedRankedTeacher(name); changePage("Faculty results"); }} /></section>}
 
           {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">Review participation by academic program.</p></div></div><ProgramTable programs={programStats} /></section>}
 
-          {page === "Reports" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Faculty evaluation results</h1><p className="page-heading__description">Teacher rankings and question averages for completed student evaluations.</p></div><label className="report-period-select">Evaluation period<select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{period.name} · {period.schoolYear} · {period.semester}</option>)}</select></label></div><ProgramTable programs={programStats} /><EvaluationRanking rankings={teacherRankings} selectedTeacher={selectedRankedTeacher || teacherRankings[0]?.name || ""} onSelectTeacher={setSelectedRankedTeacher} /><DirectoryTable search={search} teachers={teachers} /></section>}
+          {page === "Faculty results" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Professor statistics &amp; comments</h1><p className="page-heading__description">Rankings, total points, question averages, response counts, and student comments for each professor.</p></div><label className="report-period-select">Evaluation period<select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{period.name} · {period.schoolYear} · {period.semester}</option>)}</select></label></div><ProgramTable programs={programStats} /><EvaluationRanking rankings={teacherRankings} selectedTeacher={selectedRankedTeacher || teacherRankings[0]?.name || ""} onSelectTeacher={setSelectedRankedTeacher} /><DirectoryTable search={search} teachers={teachers} onViewResults={(name) => setSelectedRankedTeacher(name)} /></section>}
 
           {dataError && <div className="notice notice--info" role="alert"><span>ⓘ</span><p>{dataError}</p></div>}
           {loading && <p role="status">Loading live school data…</p>}
@@ -314,21 +327,22 @@ function ProgramTable({ programs }: { programs: ProgramStats[] }) {
 }
 
 function EvaluationRanking({ rankings, selectedTeacher, onSelectTeacher }: { rankings: TeacherRanking[]; selectedTeacher: string; onSelectTeacher: (name: string) => void }) {
-  const selected = rankings.find((ranking) => ranking.name === selectedTeacher) ?? rankings[0];
+  const selected = rankings.find((ranking) => ranking.name === selectedTeacher) ?? (selectedTeacher ? undefined : rankings[0]);
   return <section className="panel evaluation-results-panel">
-    <div className="panel-heading"><div><h2>Teacher ranking</h2><p>Ranked by the average of all submitted item ratings, from 1 to 5.</p></div></div>
+    <div className="panel-heading"><div><h2>Professor rankings</h2><p>Sorted by average score. Total points and question averages use submitted ratings only.</p></div></div>
     {rankings.length ? <>
-      <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Teacher</th><th>Average rating</th><th>Total points</th><th>Evaluations</th></tr></thead><tbody>{rankings.map((ranking, index) => <tr key={ranking.name} className={ranking.name === selected?.name ? "is-selected" : ""}><td>{index + 1}</td><td><strong>{ranking.name}</strong></td><td><strong>{ranking.average.toFixed(2)} / 5</strong></td><td>{ranking.totalPoints} / {ranking.possiblePoints}</td><td>{ranking.responses}</td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Professor</th><th>Average rating</th><th>Total points</th><th>Evaluations</th><th>Comments</th><th>Details</th></tr></thead><tbody>{rankings.map((ranking, index) => <tr key={ranking.name} className={ranking.name === selected?.name ? "is-selected" : ""}><td>{index + 1}</td><td><strong>{ranking.name}</strong></td><td><strong>{ranking.average.toFixed(2)} / 5</strong></td><td>{ranking.totalPoints} / {ranking.possiblePoints}</td><td>{ranking.responses}</td><td>{ranking.comments.length}</td><td><button className="text-link" type="button" onClick={() => onSelectTeacher(ranking.name)} aria-label={`View statistics and comments for ${ranking.name}`}>View details →</button></td></tr>)}</tbody></table></div>
       {selected && <div className="evaluation-results-detail">
         <div className="evaluation-results-detail__heading"><div><h3>{selected.name}: question averages</h3><p>Each item average uses only evaluations submitted for this teacher.</p></div><label>View teacher<select value={selected.name} onChange={(event) => onSelectTeacher(event.target.value)}>{rankings.map((ranking) => <option key={ranking.name} value={ranking.name}>{ranking.name} · {ranking.average.toFixed(2)} / 5</option>)}</select></label></div>
         <div className="table-scroll"><table className="question-average-table"><thead><tr><th>Question</th><th>Average</th><th>Responses</th></tr></thead><tbody>{selected.questions.map((question, index) => <tr key={`${index}-${question.prompt}`}><td><small>{question.section}</small><span>{String(index + 1).padStart(2, "0")}. {question.prompt}</span></td><td>{question.average === null ? "—" : `${question.average.toFixed(2)} / 5`}</td><td>{question.responses}</td></tr>)}</tbody></table></div>
-        <div className="evaluation-comments-results"><h3>Student comments</h3>{selected.comments.length ? selected.comments.map((comment, index) => <article className="evaluation-comment-result" key={`${comment.createdAt}-${index}`}><div><strong>{comment.commenter}</strong><small>{comment.course} · {new Date(comment.createdAt).toLocaleDateString()}</small></div><p>{comment.body}</p></article>) : <p className="empty-state">No comments were submitted for this teacher in this period.</p>}</div>
+        <div className="evaluation-comments-results"><h3>Student comments</h3>{selected.comments.length ? selected.comments.map((comment, index) => <article className="evaluation-comment-result" key={`${comment.createdAt}-${index}`}><div><strong>{comment.commenter}</strong><small>{comment.course} · {new Date(comment.createdAt).toLocaleDateString()}</small></div><p>{comment.body}</p></article>) : <p className="empty-state">No comments were submitted for this professor in this period.</p>}</div>
       </div>}
-    </> : <p className="empty-state">No completed ratings are available for this evaluation period yet.</p>}
+      {!selected && selectedTeacher && <div className="evaluation-results-detail"><p className="empty-state">No completed evaluations are available for {selectedTeacher} in this period yet.</p></div>}
+    </> : <p className="empty-state">{selectedTeacher ? `No completed evaluations are available for ${selectedTeacher} in this period yet.` : "No completed ratings are available for this evaluation period yet."}</p>}
   </section>;
 }
 
-function DirectoryTable({ search, teachers }: { search: string; teachers: Teacher[] }) {
+function DirectoryTable({ search, teachers, onViewResults }: { search: string; teachers: Teacher[]; onViewResults?: (name: string) => void }) {
   const visible = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
-  return <section className="panel directory-panel"><div className="directory-panel__summary"><strong>{visible.length} faculty assignments</strong><span>Grouped by course and student year level</span></div><div className="table-scroll"><table><thead><tr><th>Teacher</th><th>Program</th><th>Year level</th><th>Assigned course</th><th>Evaluation status</th></tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.id}><td><div className="program-cell"><span className="avatar">{teacher.initials}</span><span><strong>{teacher.name}</strong><small>{teacher.role}</small></span></div></td><td>{teacher.program}</td><td>{teacher.yearLevel}</td><td>{teacher.course}</td><td><span className="status status--active">{teacher.evaluations}% responses</span></td></tr>)}</tbody></table>{visible.length === 0 && <p className="empty-state">No faculty assignments match “{search}”.</p>}</div></section>;
+  return <section className="panel directory-panel"><div className="directory-panel__summary"><strong>{visible.length} faculty assignments</strong><span>Grouped by course and student year level</span></div><div className="table-scroll"><table><thead><tr><th>Teacher</th><th>Program</th><th>Year level</th><th>Assigned course</th><th>Evaluation status</th>{onViewResults && <th>Results</th>}</tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.id}><td><div className="program-cell"><span className="avatar">{teacher.initials}</span><span><strong>{teacher.name}</strong><small>{teacher.role}</small></span></div></td><td>{teacher.program}</td><td>{teacher.yearLevel}</td><td>{teacher.course}</td><td><span className="status status--active">{teacher.evaluations}% responses</span></td>{onViewResults && <td><button className="text-link" type="button" onClick={() => onViewResults(teacher.name)}>View results →</button></td>}</tr>)}</tbody></table>{visible.length === 0 && <p className="empty-state">No faculty assignments match “{search}”.</p>}</div></section>;
 }
