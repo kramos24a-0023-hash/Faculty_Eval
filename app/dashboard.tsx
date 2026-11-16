@@ -13,7 +13,8 @@ type TeacherSubjectScore = { course: string; average: number; totalPoints: numbe
 type TeacherComment = { body: string; commenter: string; course: string; createdAt: string };
 type TeacherRanking = { name: string; average: number; totalPoints: number; possiblePoints: number; responses: number; subjectGrades: TeacherSubjectScore[]; questions: TeacherQuestionScore[]; comments: TeacherComment[] };
 type StudentRosterCourse = { id: string; code: string; name: string; label: string };
-type StudentRosterRow = { id: string; name: string; schoolId: string; program: string; yearLevel: string; courses: StudentRosterCourse[] };
+type StudentProgram = { id: string; name: string; department: string };
+type StudentRosterRow = { id: string; name: string; schoolId: string; department: string; program: string; yearLevel: string; courses: StudentRosterCourse[] };
 
 const navigation: { title: string; icon: string; group: string }[] = [
   { title: "Overview", icon: "⌂", group: "Workspace" },
@@ -64,6 +65,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [teacherRankings, setTeacherRankings] = useState<TeacherRanking[]>([]);
   const [programStats, setProgramStats] = useState<ProgramStats[]>([]);
   const [studentRoster, setStudentRoster] = useState<StudentRosterRow[]>([]);
+  const [studentPrograms, setStudentPrograms] = useState<StudentProgram[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedRankedTeacher, setSelectedRankedTeacher] = useState("");
   const [teacherDetailsHidden, setTeacherDetailsHidden] = useState(false);
@@ -90,7 +92,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     let active = true;
     async function loadDashboard() {
       const db = createClient();
-      const [periodResult, courseResult, instructorResult, professorResult, studentProfileResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult] = await Promise.all([
+      const [periodResult, courseResult, instructorResult, professorResult, studentProfileResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult, studentProgramResult] = await Promise.all([
         loadAllRows(db.from("evaluation_periods").select("id,name,semester,school_year,starts_at,ends_at,is_open").order("starts_at", { ascending: false }).order("id")),
         loadAllRows(db.from("courses").select("id,code,name,program_id,programs(name,department)").order("id")),
         loadAllRows(db.from("course_instructors").select("course_id,instructors(full_name)").order("course_id").order("instructor_id")),
@@ -102,8 +104,9 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         loadAllRows(db.from("evaluation_criteria").select("id,course_id,prompt,section,sort_order,period_id,is_active").order("sort_order").order("id")),
         loadAllRows(db.from("evaluation_ratings").select("submission_id,criterion_id,rating").order("submission_id").order("criterion_id")),
         loadAllRows(db.from("evaluation_comments").select("id,body,professor_visible_name,course_id,period_id,created_at").order("created_at").order("id")),
+        loadAllRows(db.from("programs").select("id,name,department").order("department").order("name")),
       ]);
-      const failed = [periodResult, courseResult, instructorResult, professorResult, studentProfileResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult].find((result) => result.error);
+      const failed = [periodResult, courseResult, instructorResult, professorResult, studentProfileResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult, studentProgramResult].find((result) => result.error);
       if (failed?.error) { if (active) { setDataError(`Could not load admin data: ${failed.error.message}`); setLoading(false); } return; }
       if (!active) return;
       const periodsData = periodResult.data ?? [];
@@ -113,6 +116,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       const activePeriodId = (selectedPeriodId && mappedPeriods.some((p) => p.id === selectedPeriodId) ? selectedPeriodId : mappedPeriods.find((p) => p.status === "Active")?.id) ?? mappedPeriods[0]?.id ?? "";
       setSelectedPeriodId(activePeriodId);
       const students = studentResult.data ?? [];
+      setStudentPrograms(studentProgramResult.data ?? []);
       const enrollments = (enrollmentResult.data ?? []).filter((e: any) => e.period_id === activePeriodId);
       const submissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
       const courses = courseResult.data ?? [];
@@ -133,7 +137,8 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
           id: profile.id,
           name: profile.full_name || "Name not set",
           schoolId: record?.school_student_id || "Not linked",
-          program: linkedProgram ? [linkedProgram.department, linkedProgram.name].filter(Boolean).join(" · ") : "Not assigned",
+          department: linkedProgram?.department || "Program not assigned",
+          program: linkedProgram?.name || "Program not assigned",
           yearLevel: record?.year_level || "Not set",
           courses: coursesByStudent.get(profile.id) ?? [],
         };
@@ -366,7 +371,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
 
           {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty assignments grouped by course and enrolled student year level.</p></div></div><DirectoryTable search={search} teachers={teachers} onViewResults={(name) => { selectRankedTeacher(name); changePage("Faculty results"); }} /></section>}
 
-          {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">View student accounts, assigned program and year, and courses for the selected evaluation period.</p></div></div><ProgramTable programs={programStats} /><StudentRosterTable search={search} periodName={periods.find((period) => period.id === selectedPeriodId)?.name ?? "Selected period"} students={studentRoster} /></section>}
+          {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">Browse department → program → year level → student, with each student’s assigned subjects for the selected period.</p></div></div><ProgramTable programs={programStats} /><StudentRosterTable search={search} periodName={periods.find((period) => period.id === selectedPeriodId)?.name ?? "Selected period"} students={studentRoster} programs={studentPrograms} /></section>}
 
           {page === "Faculty results" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Professor statistics &amp; comments</h1><p className="page-heading__description">Rankings, total points, question averages, response counts, and student comments for each professor.</p></div><label className="report-period-select">Evaluation period<select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{period.name} · {period.schoolYear} · {period.semester}</option>)}</select></label></div><ProgramTable programs={programStats} /><EvaluationRanking rankings={teacherRankings} selectedTeacher={selectedRankedTeacher || teacherRankings[0]?.name || ""} onSelectTeacher={selectRankedTeacher} detailsHidden={teacherDetailsHidden} onToggleDetails={() => setTeacherDetailsHidden((hidden) => !hidden)} /><DirectoryTable search={search} teachers={teachers} onViewResults={selectRankedTeacher} /></section>}
 
@@ -444,35 +449,68 @@ function DirectoryTable({ search, teachers, onViewResults }: { search: string; t
   </section>;
 }
 
-function StudentRosterTable({ search, periodName, students }: { search: string; periodName: string; students: StudentRosterRow[] }) {
-  const visible = students.filter((student) => `${student.name} ${student.schoolId} ${student.program} ${student.yearLevel} ${student.courses.map((course) => course.label).join(" ")}`.toLowerCase().includes(search.toLowerCase()));
+function displayYearLevel(value: string) {
+  const normalized = value.trim().toLowerCase();
+  const numeric = normalized.match(/(?:^|\D)([1-4])(?:\D|$)/)?.[1];
+  if (numeric) return `Year ${numeric}`;
+  const ordinal = ["first", "second", "third", "fourth"].findIndex((word) => normalized.includes(word));
+  if (ordinal >= 0) return `Year ${ordinal + 1}`;
+  return value.trim() || "Year level not set";
+}
+
+function StudentRosterTable({ search, periodName, students, programs }: { search: string; periodName: string; students: StudentRosterRow[]; programs: StudentProgram[] }) {
+  const query = search.trim().toLowerCase();
+  const visible = students.filter((student) => `${student.name} ${student.schoolId} ${student.department} ${student.program} ${student.yearLevel} ${student.courses.map((course) => course.label).join(" ")}`.toLowerCase().includes(query));
   const assignedCount = students.filter((student) => student.courses.length > 0).length;
-  const courseGroups = new Map<string, { course: StudentRosterCourse; students: StudentRosterRow[] }>();
-  const unassignedStudents: StudentRosterRow[] = [];
-  for (const student of visible) {
-    if (!student.courses.length) { unassignedStudents.push(student); continue; }
-    for (const course of student.courses) {
-      const group = courseGroups.get(course.id) ?? { course, students: [] };
-      group.students.push(student);
-      courseGroups.set(course.id, group);
-    }
+  const expandMatches = Boolean(query);
+  const programGroups = new Map<string, { department: string; program: string; students: StudentRosterRow[] }>();
+
+  for (const program of programs) {
+    if (query && !`${program.department} ${program.name}`.toLowerCase().includes(query) && !visible.some((student) => student.department === program.department && student.program === program.name)) continue;
+    programGroups.set(`${program.department}::${program.name}`, { department: program.department, program: program.name, students: [] });
   }
-  const expandMatches = Boolean(search.trim());
-  const renderYearGroups = (courseStudents: StudentRosterRow[]) => {
-    const years = new Map<string, StudentRosterRow[]>();
-    for (const student of courseStudents) years.set(student.yearLevel || "Year level not set", [...(years.get(student.yearLevel || "Year level not set") ?? []), student]);
-    return [...years.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([yearLevel, yearStudents]) => <details className="student-year-group" key={yearLevel} open={expandMatches}>
-      <summary><strong>{yearLevel}</strong><span>{yearStudents.length} {yearStudents.length === 1 ? "student" : "students"}</span></summary>
-      <ul className="student-year-list">{yearStudents.sort((a, b) => a.name.localeCompare(b.name)).map((student) => <li key={student.id}><span><strong>{student.name}</strong><small>{student.program}</small></span><span className="student-year-list__id">{student.schoolId}</span></li>)}</ul>
+  for (const student of visible) {
+    const key = `${student.department}::${student.program}`;
+    const group = programGroups.get(key) ?? { department: student.department, program: student.program, students: [] };
+    group.students.push(student);
+    programGroups.set(key, group);
+  }
+
+  const departments = new Map<string, { department: string; programs: { department: string; program: string; students: StudentRosterRow[] }[] }>();
+  for (const group of programGroups.values()) {
+    const department = departments.get(group.department) ?? { department: group.department, programs: [] };
+    department.programs.push(group);
+    departments.set(group.department, department);
+  }
+
+  function renderYears(programStudents: StudentRosterRow[]) {
+    const yearMap = new Map<string, StudentRosterRow[]>([["Year 1", []], ["Year 2", []], ["Year 3", []], ["Year 4", []]]);
+    for (const student of programStudents) {
+      const year = displayYearLevel(student.yearLevel);
+      yearMap.set(year, [...(yearMap.get(year) ?? []), student]);
+    }
+    return [...yearMap.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([year, yearStudents]) => <details className="student-year-group" key={year} open={expandMatches}>
+      <summary><strong>{year}</strong><span>{yearStudents.length} {yearStudents.length === 1 ? "student" : "students"}</span></summary>
+      {yearStudents.length ? <ul className="student-year-list">{yearStudents.sort((a, b) => a.name.localeCompare(b.name)).map((student) => <li key={student.id}>
+        <div className="student-year-list__identity"><strong>{student.name}</strong><small>Student ID · {student.schoolId}</small></div>
+        <div className="student-year-list__subjects"><strong>SUBJECTS</strong>{student.courses.length ? <div>{student.courses.map((course) => <span className="student-subject-tag" key={course.id}>{course.code} · {course.name}</span>)}</div> : <small>No subjects assigned for {periodName}</small>}</div>
+      </li>)}</ul> : <p className="student-year-empty">No students in this year level yet.</p>}
     </details>);
-  };
+  }
+
   return <section className="panel student-roster-panel">
-    <div className="panel-heading"><div><h2>Available students</h2><p>{students.length} student accounts · {assignedCount} with courses assigned for {periodName}. Students enrolled in multiple courses appear in each course group.</p></div></div>
-    <div className="student-course-groups">{[...courseGroups.values()].sort((a, b) => a.course.code.localeCompare(b.course.code)).map(({ course, students: courseStudents }) => <details className="student-course-group" key={course.id} open={expandMatches}>
-      <summary><span><small>COURSE</small><strong>{course.code} · {course.name}</strong></span><span className="student-course-group__count">{courseStudents.length} {courseStudents.length === 1 ? "student" : "students"} · {new Set(courseStudents.map((student) => student.yearLevel)).size} year levels</span></summary>
-      <div className="student-year-groups">{renderYearGroups(courseStudents)}</div>
-    </details>)}
-      {unassignedStudents.length > 0 && <details className="student-course-group student-course-group--unassigned" open={expandMatches}><summary><span><small>COURSE</small><strong>Not assigned to a course</strong></span><span className="student-course-group__count">{unassignedStudents.length} {unassignedStudents.length === 1 ? "student" : "students"}</span></summary><div className="student-year-groups">{renderYearGroups(unassignedStudents)}</div></details>}
+    <div className="panel-heading"><div><h2>Students by course and year</h2><p>{students.length} student accounts · {assignedCount} with subjects assigned for {periodName}. Each student appears once under their program and year; their subjects are listed below their name.</p></div></div>
+    <div className="student-course-groups">{[...departments.values()].sort((a, b) => a.department.localeCompare(b.department)).map(({ department, programs: departmentPrograms }) => {
+      const studentCount = new Set(departmentPrograms.flatMap((program) => program.students.map((student) => student.id))).size;
+      const subjectCount = new Set(departmentPrograms.flatMap((program) => program.students.flatMap((student) => student.courses.map((course) => course.id)))).size;
+      return <details className="student-course-group" key={department} open={expandMatches || !query}>
+        <summary><span><small>{department === "Computing Studies" ? "COMPSCI · DEPARTMENT" : "DEPARTMENT"}</small><strong>{department}</strong></span><span className="student-course-group__count">{studentCount} {studentCount === 1 ? "student" : "students"} · {subjectCount} subjects</span></summary>
+        <div className="student-program-groups">{departmentPrograms.sort((a, b) => a.program.localeCompare(b.program)).map(({ program, students: programStudents }) => <details className="student-program-group" key={`${department}-${program}`} open={expandMatches}>
+          <summary><span><small>PROGRAM</small><strong>{program}</strong></span><span className="student-course-group__count">{programStudents.length} {programStudents.length === 1 ? "student" : "students"}</span></summary>
+          <div className="student-year-groups">{renderYears(programStudents)}</div>
+        </details>)}</div>
+      </details>;
+    })}
       {visible.length === 0 && <p className="empty-state">No student accounts match “{search}”.</p>}
     </div>
   </section>;
