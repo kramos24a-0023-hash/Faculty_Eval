@@ -13,7 +13,7 @@ const sampleStudent: StudentAccess = {
   courses: [
     { id: "demo-cc104", course: "Data Structures and Algorithms", code: "CC104", teacher: "Mr. Rame Tiongson", initials: "RT", program: "Computing Studies · Computer Science" },
     { id: "demo-ds102", course: "Discrete Structures 2", code: "DS102", teacher: "Ms. Apasra Somo", initials: "AS", program: "Computing Studies · Computer Science" },
-    { id: "demo-ege10", course: "Science, Technology and Society", code: "EGE10", teacher: "Ms. Fleur Rivera", initials: "FR", program: "Computing Studies · Computer Science" },
+    { id: "demo-ege10", course: "Science, Technology and Society", code: "EGE10", teacher: "Ms. Fleur Rivera", initials: "FR", program: "General Education" },
     { id: "demo-hmge11", course: "Panitikan", code: "HMGE11", teacher: "Ms. Anabelle Nase", initials: "AN", program: "Computing Studies · Computer Science" },
     { id: "demo-im101", course: "Fundamentals of Database Systems", code: "IM101", teacher: "Ms. Ruby Cruz", initials: "RC", program: "Computing Studies · Computer Science" },
     { id: "demo-pathfit3", course: "Dance", code: "PATHFIT 3", teacher: "Mr. Xavier Pillas", initials: "XP", program: "Computing Studies · Computer Science" },

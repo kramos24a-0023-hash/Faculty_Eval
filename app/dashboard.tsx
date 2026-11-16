@@ -155,6 +155,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
       const grouped = new Map<string, Teacher>();
       for (const course of courses as any[]) {
         const program = Array.isArray(course.programs) ? course.programs[0] : course.programs;
+        const programLabel = [...new Set([program?.department, program?.name].filter(Boolean))].join(" · ") || "Program not assigned";
         for (const teacherName of new Set(instructorNames.get(course.id) ?? [])) {
           const matchedEnrollments = enrollments.filter((e: any) => e.course_id === course.id);
           const byYear = new Map<string, string[]>();
@@ -163,12 +164,13 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
             const year = record?.year_level?.trim() || "Year level not set";
             byYear.set(year, [...(byYear.get(year) ?? []), enrollment.student_id]);
           }
+          if (byYear.size === 0) byYear.set("No students enrolled", []);
           for (const [year, eligibleIds] of byYear) {
             const eligible = eligibleIds.length;
             const responseIds = new Set(submissions.filter((s: any) => s.course_id === course.id).map((s: any) => s.student_id));
             const responses = eligibleIds.filter((id) => responseIds.has(id)).length;
-            const key = `${teacherName}|${program?.name}|${year}|${course.id}`;
-            grouped.set(key, { id: key, name: teacherName, role: "Faculty", program: program?.name ?? "", yearLevel: year, course: `${course.code} · ${course.name}`, initials: teacherName.split(/\s+/).slice(0,2).map((p: string)=>p[0]).join("").toUpperCase(), evaluations: eligible ? Math.round(responses / eligible * 100) : 0 });
+            const key = `${teacherName}|${programLabel}|${year}|${course.id}`;
+            grouped.set(key, { id: key, name: teacherName, role: "Faculty", program: programLabel, yearLevel: year, course: `${course.code} · ${course.name}`, initials: teacherName.split(/\s+/).slice(0,2).map((p: string)=>p[0]).join("").toUpperCase(), evaluations: eligible ? Math.round(responses / eligible * 100) : 0 });
           }
         }
       }
@@ -374,7 +376,31 @@ function EvaluationRanking({ rankings, selectedTeacher, onSelectTeacher, details
 
 function DirectoryTable({ search, teachers, onViewResults }: { search: string; teachers: Teacher[]; onViewResults?: (name: string) => void }) {
   const visible = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
-  return <section className="panel directory-panel"><div className="directory-panel__summary"><strong>{visible.length} faculty assignments</strong><span>Grouped by course and student year level</span></div><div className="table-scroll"><table><thead><tr><th>Teacher</th><th>Program</th><th>Year level</th><th>Assigned course</th><th>Evaluation status</th>{onViewResults && <th>Results</th>}</tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.id}><td><div className="program-cell"><span className="avatar">{teacher.initials}</span><span><strong>{teacher.name}</strong><small>{teacher.role}</small></span></div></td><td>{teacher.program}</td><td>{teacher.yearLevel}</td><td>{teacher.course}</td><td><span className="status status--active">{teacher.evaluations}% responses</span></td>{onViewResults && <td><button className="text-link" type="button" onClick={() => onViewResults(teacher.name)}>View results →</button></td>}</tr>)}</tbody></table>{visible.length === 0 && <p className="empty-state">No faculty assignments match “{search}”.</p>}</div></section>;
+  const grouped = new Map<string, Map<string, Teacher[]>>();
+  for (const teacher of visible) {
+    const professors = grouped.get(teacher.program) ?? new Map<string, Teacher[]>();
+    professors.set(teacher.name, [...(professors.get(teacher.name) ?? []), teacher]);
+    grouped.set(teacher.program, professors);
+  }
+  const expandMatches = Boolean(search.trim());
+  return <section className="panel directory-panel">
+    <div className="directory-panel__summary"><strong>{visible.length} course and year assignments</strong><span>Open a program, then a professor, to see their courses and year levels.</span></div>
+    <div className="faculty-program-list">{[...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([program, professors]) => {
+      const assignmentCount = [...professors.values()].reduce((total, assignments) => total + assignments.length, 0);
+      return <details className="faculty-program-group" key={program} open={expandMatches}>
+        <summary><span><small>PROGRAM</small><strong>{program}</strong></span><span className="faculty-program-count">{professors.size} {professors.size === 1 ? "professor" : "professors"} · {assignmentCount} {assignmentCount === 1 ? "assignment" : "assignments"}</span></summary>
+        <div className="faculty-professors">{[...professors.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, assignments]) => {
+          const initials = assignments[0]?.initials ?? name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+          return <details className="faculty-professor-group" key={`${program}-${name}`} open={expandMatches}>
+            <summary><span className="avatar">{initials}</span><span className="faculty-professor-name"><strong>{name}</strong><small>{assignments.length} course and year {assignments.length === 1 ? "assignment" : "assignments"}</small></span><span className="faculty-professor-chevron" aria-hidden="true">⌄</span></summary>
+            <div className="faculty-assignment-list">{assignments.sort((a, b) => a.course.localeCompare(b.course) || a.yearLevel.localeCompare(b.yearLevel)).map((assignment) => <article className="faculty-assignment" key={assignment.id}><div><strong>{assignment.course}</strong><small>{assignment.yearLevel}</small></div><span className="faculty-assignment-response">{assignment.evaluations}% response rate</span></article>)}
+              {onViewResults && <button className="button button--primary faculty-results-link" type="button" onClick={() => onViewResults(name)}>View professor results →</button>}
+            </div>
+          </details>;
+        })}</div>
+      </details>;
+    })}{visible.length === 0 && <p className="empty-state">No faculty assignments match “{search}”.</p>}</div>
+  </section>;
 }
 
 function StudentRosterTable({ search, periodName, students }: { search: string; periodName: string; students: StudentRosterRow[] }) {
