@@ -45,7 +45,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
           const [professorResult, directoryInstructorResult, criterionResult, submissionResult, programNamesResult] = await Promise.all([
             courseIds.length ? supabase.from("course_professors").select("course_id, professor_id, profiles(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
             courseIds.length ? supabase.from("course_instructors").select("course_id, instructors(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
-            supabase.from("evaluation_criteria").select("id, prompt").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
+            supabase.from("evaluation_criteria").select("id, prompt, section").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
             supabase.from("evaluation_submissions").select("course_id").eq("student_id", user.id).eq("period_id", period.id),
             supabase.from("programs").select("id, name, department"),
           ]);

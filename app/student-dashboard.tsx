@@ -20,7 +20,7 @@ export type StudentAccess = {
   program: string;
   yearLevel: string;
   courses?: Course[];
-  criteria?: { id: string; prompt: string }[];
+  criteria?: { id: string; prompt: string; section?: string }[];
   completedCourseIds?: (string | number)[];
   periodId?: string;
   periodName?: string;
@@ -212,9 +212,9 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
               <div className="form-divider" />
               <div className="survey-guide-steps">
                 <article><span>01</span><div><strong>Think about your experience</strong><p>Consider the course across the semester, including lessons, class discussions, and feedback.</p></div></article>
-                <article><span>02</span><div><strong>Rate five teaching statements</strong><p>Choose one response for every statement, from 1 “Needs work” to 5 “Excellent.”</p></div></article>
+                <article><span>02</span><div><strong>Rate all {criteria.length} evaluation items</strong><p>Choose one response for every item, from 1 “Needs improvement” to 5 “Excellent.”</p></div></article>
                 <article><span>03</span><div><strong>Add a comment if you want</strong><p>Comments are optional. Specific, respectful suggestions can make your feedback more useful.</p></div></article>
-                <article><span>04</span><div><strong>Review, then submit</strong><p>All five ratings are required. If any are missing, the survey will point them out so you can finish.</p></div></article>
+                <article><span>04</span><div><strong>Review, then submit</strong><p>All {criteria.length} ratings are required. Your average is total points divided by the number of questions, from 1.00 to 5.00.</p></div></article>
               </div>
               <div className="form-actions"><button className="button button--secondary" type="button" onClick={() => setSelectedCourse(null)}>← Back to my evaluations</button><button className="button button--primary" type="button" onClick={() => setEvaluationStep("survey")}>Continue to survey <span>→</span></button></div>
             </article>
@@ -229,15 +229,19 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
               <button className="text-link back-link" type="button" onClick={() => setEvaluationStep("guide")}>← Back to survey guide</button>
               <div className="teacher-heading"><span className="avatar avatar--large">{selectedCourse.initials}</span><div><h2>{selectedCourse.teacher}</h2><p>{selectedCourse.course} · {selectedCourse.code}</p></div><span className="step-indicator">2 <span>/ 2</span></span></div>
               <div className="form-divider" />
-              <h3>Teaching and learning</h3><p className="section-copy">Select one rating for each statement. Comments are optional.</p>
+              <h3>Faculty evaluation questionnaire</h3><p className="section-copy">Rate each item from 1 to 5. The lowest total is {criteria.length}; the highest is {criteria.length * 5}. Comments are optional.</p>
               <form onSubmit={submitEvaluation}>
-                {showValidation && <div className="survey-validation" role="alert"><span aria-hidden="true">!</span><p><strong>Survey incomplete</strong>Please answer all five statements. {missingRatingCount} {missingRatingCount === 1 ? "rating is" : "ratings are"} still missing.</p></div>}
+                {showValidation && <div className="survey-validation" role="alert"><span aria-hidden="true">!</span><p><strong>Survey incomplete</strong>Please answer all {criteria.length} items. {missingRatingCount} {missingRatingCount === 1 ? "rating is" : "ratings are"} still missing.</p></div>}
                 {criteria.map((criterion, index) => {
                   const unanswered = showValidation && !ratings[index];
+                  const section = criteriaRows[index]?.section ?? "Instructional Component";
+                  const previousSection = index > 0 ? criteriaRows[index - 1]?.section : undefined;
                   return <fieldset className={`rating-field ${unanswered ? "is-incomplete" : ""}`} key={criterion} aria-invalid={unanswered || undefined}>
-                    <legend><span>{String(index + 1).padStart(2, "0")}</span>{criterion}</legend>
+                    <legend className="visually-hidden">Question {index + 1}: {criterion}</legend>
+                    {section !== previousSection && <h3 className="rating-section-heading">{section}</h3>}
+                    <div className="rating-question"><strong>{String(index + 1).padStart(2, "0")}</strong><span>{criterion}</span></div>
                     <div className="rating-options" aria-label={`Rating for ${criterion}`}>
-                      {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" className={`rating-option ${ratings[index] === score ? "is-selected" : ""}`} aria-pressed={ratings[index] === score} onClick={() => rateCriterion(index, score)}><strong>{score}</strong><small>{["Needs work", "Fair", "Good", "Very good", "Excellent"][score - 1]}</small></button>)}
+                      {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" className={`rating-option ${ratings[index] === score ? "is-selected" : ""}`} aria-pressed={ratings[index] === score} onClick={() => rateCriterion(index, score)}><strong>{score}</strong><small>{["Needs improvement", "Satisfactory", "Moderately satisfactory", "Highly satisfactory", "Excellent"][score - 1]}</small></button>)}
                     </div>
                     {unanswered && <p className="rating-field__error">Choose one rating for this statement.</p>}
                   </fieldset>;

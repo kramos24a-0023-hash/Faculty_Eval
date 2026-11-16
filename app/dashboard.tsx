@@ -7,6 +7,9 @@ type Page = "Overview" | "Evaluation periods" | "Teachers" | "Students" | "Repor
 type Teacher = { id: string; name: string; role: string; program: string; yearLevel: string; course: string; initials: string; evaluations: number };
 type Period = { id: string; name: string; semester: string; schoolYear: string; start: string; end: string; status: "Active" | "Upcoming" | "Closed" };
 type ProgramStats = { name: string; code: string; eligible: number; submitted: number };
+type TeacherQuestionScore = { prompt: string; section: string; average: number | null; responses: number };
+type TeacherComment = { body: string; commenter: string; course: string; createdAt: string };
+type TeacherRanking = { name: string; average: number; totalPoints: number; possiblePoints: number; responses: number; questions: TeacherQuestionScore[]; comments: TeacherComment[] };
 
 const navigation: { title: string; icon: string; group: string }[] = [
   { title: "Overview", icon: "⌂", group: "Workspace" },
@@ -40,8 +43,10 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
   const [page, setPage] = useState<Page>("Overview");
   const [periods, setPeriods] = useState<Period[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teacherRankings, setTeacherRankings] = useState<TeacherRanking[]>([]);
   const [programStats, setProgramStats] = useState<ProgramStats[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
+  const [selectedRankedTeacher, setSelectedRankedTeacher] = useState("");
   const [dataError, setDataError] = useState("");
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalEligibleEnrollments, setTotalEligibleEnrollments] = useState(0);
@@ -63,23 +68,26 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     let active = true;
     async function loadDashboard() {
       const db = createClient();
-      const [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult] = await Promise.all([
+      const [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult] = await Promise.all([
         db.from("evaluation_periods").select("id,name,semester,school_year,starts_at,ends_at,is_open").order("starts_at", { ascending: false }),
         db.from("courses").select("id,code,name,program_id,programs(name,department)"),
         db.from("course_instructors").select("course_id,instructors(full_name)"),
         db.from("course_professors").select("course_id,profiles(full_name,role)"),
         db.from("student_records").select("student_id,year_level,program_id,programs(name)"),
         db.from("student_enrollments").select("student_id,course_id,period_id"),
-        db.from("evaluation_submissions").select("student_id,course_id,period_id"),
+        db.from("evaluation_submissions").select("id,student_id,course_id,period_id"),
+        db.from("evaluation_criteria").select("id,prompt,section,sort_order,period_id,is_active").order("sort_order"),
+        db.from("evaluation_ratings").select("submission_id,criterion_id,rating"),
+        db.from("evaluation_comments").select("body,professor_visible_name,course_id,period_id,created_at"),
       ]);
-      const failed = [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult].find((result) => result.error);
+      const failed = [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult, criteriaResult, ratingResult, commentResult].find((result) => result.error);
       if (failed?.error) { if (active) { setDataError(`Could not load admin data: ${failed.error.message}`); setLoading(false); } return; }
       if (!active) return;
       const periodsData = periodResult.data ?? [];
       const now = Date.now();
       const mappedPeriods: Period[] = periodsData.map((p: any) => ({ id: p.id, name: p.name, semester: p.semester, schoolYear: p.school_year, start: p.starts_at.slice(0,10), end: p.ends_at.slice(0,10), status: p.is_open && Date.parse(p.starts_at) <= now && Date.parse(p.ends_at) >= now ? "Active" : Date.parse(p.starts_at) > now ? "Upcoming" : "Closed" }));
       setPeriods(mappedPeriods);
-      const activePeriodId = mappedPeriods.find((p) => p.status === "Active")?.id ?? mappedPeriods[0]?.id ?? "";
+      const activePeriodId = (selectedPeriodId && mappedPeriods.some((p) => p.id === selectedPeriodId) ? selectedPeriodId : mappedPeriods.find((p) => p.status === "Active")?.id) ?? mappedPeriods[0]?.id ?? "";
       setSelectedPeriodId(activePeriodId);
       const students = studentResult.data ?? [];
       const enrollments = (enrollmentResult.data ?? []).filter((e: any) => e.period_id === activePeriodId);
@@ -125,11 +133,59 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         }
       }
       setTeachers([...grouped.values()]);
+      const periodSubmissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
+      const submissionIds = new Set(periodSubmissions.map((s: any) => s.id));
+      const activeCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId && item.is_active);
+      const periodRatings = (ratingResult.data ?? []).filter((item: any) => submissionIds.has(item.submission_id));
+      const coursesById = new Map((courses as any[]).map((course: any) => [course.id, course]));
+      const rankingByTeacher = new Map<string, { total: number; ratingCount: number; responses: Set<string>; perQuestion: Map<string, number[]>; comments: TeacherComment[] }>();
+      const ratingsBySubmission = new Map<string, any[]>();
+      for (const rating of periodRatings as any[]) ratingsBySubmission.set(rating.submission_id, [...(ratingsBySubmission.get(rating.submission_id) ?? []), rating]);
+      const peopleByCourse = new Map<string, string[]>();
+      for (const [courseId, names] of instructorNames) peopleByCourse.set(courseId, [...new Set(names)]);
+      for (const submission of periodSubmissions as any[]) {
+        const names = peopleByCourse.get(submission.course_id) ?? [];
+        const responseRatings = ratingsBySubmission.get(submission.id) ?? [];
+        for (const name of names) {
+          const entry = rankingByTeacher.get(name) ?? { total: 0, ratingCount: 0, responses: new Set<string>(), perQuestion: new Map<string, number[]>(), comments: [] };
+          entry.responses.add(submission.id);
+          for (const rating of responseRatings) {
+            entry.total += Number(rating.rating);
+            entry.ratingCount++;
+            entry.perQuestion.set(rating.criterion_id, [...(entry.perQuestion.get(rating.criterion_id) ?? []), Number(rating.rating)]);
+          }
+          rankingByTeacher.set(name, entry);
+        }
+      }
+      for (const comment of (commentResult.data ?? []).filter((row: any) => row.period_id === activePeriodId) as any[]) {
+        const course: any = coursesById.get(comment.course_id);
+        const courseLabel = course ? `${course.code} · ${course.name}` : "Course";
+        for (const name of peopleByCourse.get(comment.course_id) ?? []) {
+          const entry = rankingByTeacher.get(name);
+          if (entry) entry.comments.push({ body: comment.body, commenter: comment.professor_visible_name ?? "Anonymous student", course: courseLabel, createdAt: comment.created_at });
+        }
+      }
+      const computedRankings: TeacherRanking[] = [...rankingByTeacher.entries()]
+        .filter(([, entry]) => entry.ratingCount > 0)
+        .map(([name, entry]) => ({
+          name,
+          average: entry.total / entry.ratingCount,
+          totalPoints: entry.total,
+          possiblePoints: entry.ratingCount * 5,
+          responses: entry.responses.size,
+          questions: activeCriteria.map((criterion: any) => {
+            const values = entry.perQuestion.get(criterion.id) ?? [];
+            return { prompt: criterion.prompt, section: criterion.section ?? "", average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null, responses: values.length };
+          }),
+          comments: entry.comments.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        }))
+        .sort((a, b) => b.average - a.average || b.responses - a.responses || a.name.localeCompare(b.name));
+      setTeacherRankings(computedRankings);
       setDataError(""); setLoading(false);
     }
     void loadDashboard();
     return () => { active = false; };
-  }, []);
+  }, [selectedPeriodId]);
 
   function createPeriod(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -222,7 +278,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
 
           {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">Review participation by academic program.</p></div></div><ProgramTable programs={programStats} /></section>}
 
-          {page === "Reports" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Participation report</h1><p className="page-heading__description">Response coverage across programs.</p></div></div><ProgramTable programs={programStats} /><DirectoryTable search={search} teachers={teachers} /></section>}
+          {page === "Reports" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Faculty evaluation results</h1><p className="page-heading__description">Teacher rankings and question averages for completed student evaluations.</p></div><label className="report-period-select">Evaluation period<select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{period.name} · {period.schoolYear} · {period.semester}</option>)}</select></label></div><ProgramTable programs={programStats} /><EvaluationRanking rankings={teacherRankings} selectedTeacher={selectedRankedTeacher || teacherRankings[0]?.name || ""} onSelectTeacher={setSelectedRankedTeacher} /><DirectoryTable search={search} teachers={teachers} /></section>}
 
           {dataError && <div className="notice notice--info" role="alert"><span>ⓘ</span><p>{dataError}</p></div>}
           {loading && <p role="status">Loading live school data…</p>}
@@ -251,6 +307,21 @@ function Activity({ icon, title, detail, time, tone = "" }: { icon: string; titl
 
 function ProgramTable({ programs }: { programs: ProgramStats[] }) {
   return <section className="panel participation-panel"><div className="panel-heading"><div><h2>Program participation</h2><p>Eligible enrollment and submitted evaluations by program</p></div></div><div className="table-scroll"><table><thead><tr><th>Program</th><th>Eligible enrollments</th><th>Submitted</th><th>Participation</th><th>Status</th></tr></thead><tbody>{programs.map((program) => { const ratio = program.eligible ? Math.round((program.submitted / program.eligible) * 100) : 0; return <tr key={program.code}><td><div className="program-cell"><span className="program-cell__icon">▤</span><span><strong>{program.name}</strong><small>{program.code}</small></span></div></td><td>{program.eligible}</td><td>{program.submitted}</td><td><div className="table-progress"><Progress value={ratio} /><small>{ratio}%</small></div></td><td><span className={`status ${ratio >= 80 ? "status--active" : "status--progress"}`}>{ratio >= 80 ? "On track" : "In progress"}</span></td></tr>; })}</tbody></table>{!programs.length && <p className="empty-state">No enrollment records are available.</p>}</div></section>;
+}
+
+function EvaluationRanking({ rankings, selectedTeacher, onSelectTeacher }: { rankings: TeacherRanking[]; selectedTeacher: string; onSelectTeacher: (name: string) => void }) {
+  const selected = rankings.find((ranking) => ranking.name === selectedTeacher) ?? rankings[0];
+  return <section className="panel evaluation-results-panel">
+    <div className="panel-heading"><div><h2>Teacher ranking</h2><p>Ranked by the average of all submitted item ratings, from 1 to 5.</p></div></div>
+    {rankings.length ? <>
+      <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Teacher</th><th>Average rating</th><th>Total points</th><th>Evaluations</th></tr></thead><tbody>{rankings.map((ranking, index) => <tr key={ranking.name} className={ranking.name === selected?.name ? "is-selected" : ""}><td>{index + 1}</td><td><strong>{ranking.name}</strong></td><td><strong>{ranking.average.toFixed(2)} / 5</strong></td><td>{ranking.totalPoints} / {ranking.possiblePoints}</td><td>{ranking.responses}</td></tr>)}</tbody></table></div>
+      {selected && <div className="evaluation-results-detail">
+        <div className="evaluation-results-detail__heading"><div><h3>{selected.name}: question averages</h3><p>Each item average uses only evaluations submitted for this teacher.</p></div><label>View teacher<select value={selected.name} onChange={(event) => onSelectTeacher(event.target.value)}>{rankings.map((ranking) => <option key={ranking.name} value={ranking.name}>{ranking.name} · {ranking.average.toFixed(2)} / 5</option>)}</select></label></div>
+        <div className="table-scroll"><table className="question-average-table"><thead><tr><th>Question</th><th>Average</th><th>Responses</th></tr></thead><tbody>{selected.questions.map((question, index) => <tr key={`${index}-${question.prompt}`}><td><small>{question.section}</small><span>{String(index + 1).padStart(2, "0")}. {question.prompt}</span></td><td>{question.average === null ? "—" : `${question.average.toFixed(2)} / 5`}</td><td>{question.responses}</td></tr>)}</tbody></table></div>
+        <div className="evaluation-comments-results"><h3>Student comments</h3>{selected.comments.length ? selected.comments.map((comment, index) => <article className="evaluation-comment-result" key={`${comment.createdAt}-${index}`}><div><strong>{comment.commenter}</strong><small>{comment.course} · {new Date(comment.createdAt).toLocaleDateString()}</small></div><p>{comment.body}</p></article>) : <p className="empty-state">No comments were submitted for this teacher in this period.</p>}</div>
+      </div>}
+    </> : <p className="empty-state">No completed ratings are available for this evaluation period yet.</p>}
+  </section>;
 }
 
 function DirectoryTable({ search, teachers }: { search: string; teachers: Teacher[] }) {
