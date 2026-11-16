@@ -1,44 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { createClient } from "../lib/supabase/client";
 
-type Page = "Overview" | "Evaluation periods" | "Evaluate faculty" | "Teachers" | "Students" | "Reports";
-type Teacher = { id: number; name: string; role: string; program: string; course: string; initials: string; evaluations: number };
-type Period = { id: number; name: string; semester: string; schoolYear: string; start: string; end: string; status: "Active" | "Upcoming" | "Closed" };
-
-const criteria = [
-  "Explains course concepts clearly",
-  "Encourages questions and discussion",
-  "Provides useful feedback on student work",
-  "Uses class time and learning materials effectively",
-  "Treats students fairly and respectfully",
-];
-
-const teachers: Teacher[] = [
-  { id: 1, name: "Daniel Reyes", role: "Associate Professor", program: "BS Information Technology", course: "Web Application Development", initials: "DR", evaluations: 84 },
-  { id: 2, name: "Angela Santos", role: "Assistant Professor", program: "BS Computer Science", course: "Data Structures and Algorithms", initials: "AS", evaluations: 91 },
-  { id: 3, name: "Miguel Dela Cruz", role: "Instructor", program: "BS Business Administration", course: "Principles of Management", initials: "MD", evaluations: 67 },
-  { id: 4, name: "Sofia Mendoza", role: "Assistant Professor", program: "BS Information Technology", course: "Database Management Systems", initials: "SM", evaluations: 78 },
-];
-
-const initialPeriods: Period[] = [
-  { id: 1, name: "Midterm Faculty Evaluation", semester: "1st Semester", schoolYear: "2026–2027", start: "2026-11-02", end: "2026-11-27", status: "Active" },
-  { id: 2, name: "Final Faculty Evaluation", semester: "1st Semester", schoolYear: "2026–2027", start: "2026-12-01", end: "2026-12-18", status: "Upcoming" },
-];
+type Page = "Overview" | "Evaluation periods" | "Teachers" | "Students" | "Reports";
+type Teacher = { id: string; name: string; role: string; program: string; yearLevel: string; course: string; initials: string; evaluations: number };
+type Period = { id: string; name: string; semester: string; schoolYear: string; start: string; end: string; status: "Active" | "Upcoming" | "Closed" };
+type ProgramStats = { name: string; code: string; eligible: number; submitted: number };
 
 const navigation: { title: string; icon: string; group: string }[] = [
   { title: "Overview", icon: "⌂", group: "Workspace" },
   { title: "Evaluation periods", icon: "◷", group: "Workspace" },
-  { title: "Evaluate faculty", icon: "✓", group: "Evaluation" },
   { title: "Teachers", icon: "♙", group: "Management" },
   { title: "Students", icon: "♧", group: "Management" },
   { title: "Reports", icon: "▥", group: "Insights" },
-];
-
-const programs = [
-  { name: "Computer Science", code: "BSCS", eligible: 248, submitted: 228 },
-  { name: "Information Technology", code: "BSIT", eligible: 386, submitted: 328 },
-  { name: "Business Administration", code: "BSBA", eligible: 312, submitted: 244 },
 ];
 
 function formatDate(value: string) {
@@ -63,39 +38,96 @@ function Progress({ value, light = false }: { value: number; light?: boolean }) 
 
 export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onLogout?: () => void; adminName?: string }) {
   const [page, setPage] = useState<Page>("Overview");
-  const [periods, setPeriods] = useState(initialPeriods);
+  const [periods, setPeriods] = useState<Period[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [programStats, setProgramStats] = useState<ProgramStats[]>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState("");
+  const [dataError, setDataError] = useState("");
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [submitted, setSubmitted] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [periodDialog, setPeriodDialog] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
-  const [ratings, setRatings] = useState<Record<number, number>>({});
-  const [submitted, setSubmitted] = useState(2079);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const totalEligible = 2458;
+  const totalEligible = totalStudents;
   const nameParts = adminName.trim().split(/\s+/).filter((part) => part.length > 1);
   const adminInitials = nameParts.length > 1 ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase() : (nameParts[0] ?? "A").slice(0, 2).toUpperCase();
   const firstName = adminName.trim().split(/\s+/)[0] || adminName;
   const participation = Math.round((submitted / totalEligible) * 1000) / 10;
-  const filteredTeachers = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredTeachers = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
 
-  function openEvaluation(teacher: Teacher) {
-    setSelectedTeacher(teacher);
-    setRatings({});
-    setPage("Evaluate faculty");
-  }
-
-  function submitEvaluation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (criteria.some((_, index) => !ratings[index])) {
-      setToast("Please rate every teaching criterion before submitting.");
-      return;
+  useEffect(() => {
+    let active = true;
+    async function loadDashboard() {
+      const db = createClient();
+      const [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult] = await Promise.all([
+        db.from("evaluation_periods").select("id,name,semester,school_year,starts_at,ends_at,is_open").order("starts_at", { ascending: false }),
+        db.from("courses").select("id,code,name,program_id,programs(name,department)"),
+        db.from("course_instructors").select("course_id,instructors(full_name)"),
+        db.from("course_professors").select("course_id,profiles(full_name,role)"),
+        db.from("student_records").select("student_id,year_level,program_id,programs(name)"),
+        db.from("student_enrollments").select("student_id,course_id,period_id"),
+        db.from("evaluation_submissions").select("student_id,course_id,period_id"),
+      ]);
+      const failed = [periodResult, courseResult, instructorResult, professorResult, studentResult, enrollmentResult, submissionResult].find((result) => result.error);
+      if (failed?.error) { if (active) { setDataError(`Could not load admin data: ${failed.error.message}`); setLoading(false); } return; }
+      if (!active) return;
+      const periodsData = periodResult.data ?? [];
+      const now = Date.now();
+      const mappedPeriods: Period[] = periodsData.map((p: any) => ({ id: p.id, name: p.name, semester: p.semester, schoolYear: p.school_year, start: p.starts_at.slice(0,10), end: p.ends_at.slice(0,10), status: p.is_open && Date.parse(p.starts_at) <= now && Date.parse(p.ends_at) >= now ? "Active" : Date.parse(p.starts_at) > now ? "Upcoming" : "Closed" }));
+      setPeriods(mappedPeriods);
+      const activePeriodId = mappedPeriods.find((p) => p.status === "Active")?.id ?? mappedPeriods[0]?.id ?? "";
+      setSelectedPeriodId(activePeriodId);
+      const students = studentResult.data ?? [];
+      const enrollments = (enrollmentResult.data ?? []).filter((e: any) => e.period_id === activePeriodId);
+      const submissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
+      const courses = courseResult.data ?? [];
+      setTotalStudents(enrollments.length);
+      setSubmitted(submissions.length);
+      const stats = new Map<string, ProgramStats>();
+      for (const e of enrollments as any[]) {
+          const student: any = students.find((s: any) => s.student_id === e.student_id);
+        const course: any = courses.find((c: any) => c.id === e.course_id);
+        const program = Array.isArray(course?.programs) ? course.programs[0] : course?.programs;
+        if (!program) continue;
+        const key = `${program.department ?? ""}|${program.name}`;
+        const row = stats.get(key) ?? { name: [program.department, program.name].filter(Boolean).join(" · "), code: program.name, eligible: 0, submitted: 0 };
+        row.eligible++;
+        if (submissions.some((s: any) => s.student_id === e.student_id && s.course_id === e.course_id && s.period_id === e.period_id)) row.submitted++;
+        stats.set(key, row);
+      }
+      setProgramStats([...stats.values()]);
+      const instructorNames = new Map<string, string[]>();
+      for (const item of instructorResult.data ?? [] as any[]) { const x: any = item; const value = Array.isArray(x.instructors) ? x.instructors[0] : x.instructors; if (value?.full_name) instructorNames.set(x.course_id, [...(instructorNames.get(x.course_id) ?? []), value.full_name]); }
+      for (const item of professorResult.data ?? [] as any[]) { const x: any = item; const value = Array.isArray(x.profiles) ? x.profiles[0] : x.profiles; if (value?.full_name) instructorNames.set(x.course_id, [...(instructorNames.get(x.course_id) ?? []), value.full_name]); }
+      const grouped = new Map<string, Teacher>();
+      for (const course of courses as any[]) {
+        const program = Array.isArray(course.programs) ? course.programs[0] : course.programs;
+        for (const teacherName of new Set(instructorNames.get(course.id) ?? [])) {
+          const matchedEnrollments = enrollments.filter((e: any) => e.course_id === course.id);
+          const byYear = new Map<string, string[]>();
+          for (const enrollment of matchedEnrollments) {
+            const record: any = students.find((s: any) => s.student_id === enrollment.student_id);
+            const year = record?.year_level?.trim() || "Year level not set";
+            byYear.set(year, [...(byYear.get(year) ?? []), enrollment.student_id]);
+          }
+          for (const [year, eligibleIds] of byYear) {
+            const eligible = eligibleIds.length;
+            const responseIds = new Set(submissions.filter((s: any) => s.course_id === course.id).map((s: any) => s.student_id));
+            const responses = eligibleIds.filter((id) => responseIds.has(id)).length;
+            const key = `${teacherName}|${program?.name}|${year}|${course.id}`;
+            grouped.set(key, { id: key, name: teacherName, role: "Faculty", program: program?.name ?? "", yearLevel: year, course: `${course.code} · ${course.name}`, initials: teacherName.split(/\s+/).slice(0,2).map((p: string)=>p[0]).join("").toUpperCase(), evaluations: eligible ? Math.round(responses / eligible * 100) : 0 });
+          }
+        }
+      }
+      setTeachers([...grouped.values()]);
+      setDataError(""); setLoading(false);
     }
-    setSubmitted((count) => Math.min(count + 1, totalEligible));
-    setSelectedTeacher(null);
-    setPage("Overview");
-    setToast("Thank you. Your sample evaluation was recorded for this session.");
-  }
+    void loadDashboard();
+    return () => { active = false; };
+  }, []);
 
   function createPeriod(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,15 +141,15 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     const name = String(data.get("name") ?? "New evaluation period").trim();
     const semester = String(data.get("semester") ?? "1st Semester");
     const schoolYear = String(data.get("schoolYear") ?? "2026–2027");
-    setPeriods((items) => [...items, { id: Date.now(), name, semester, schoolYear, start, end, status: "Upcoming" }]);
-    setPeriodDialog(false);
-    setToast("Evaluation period added to this session.");
-    event.currentTarget.reset();
+    void createClient().from("evaluation_periods").insert({ name, semester, school_year: schoolYear, starts_at: new Date(`${start}T00:00:00`).toISOString(), ends_at: new Date(`${end}T23:59:59`).toISOString(), is_open: false }).select("id,name,semester,school_year,starts_at,ends_at,is_open").single().then(({ data, error }) => {
+      if (error) { setToast(`Could not create period: ${error.message}`); return; }
+      setPeriods((items) => [...items, { id: data.id, name: data.name, semester: data.semester, schoolYear: data.school_year, start: data.starts_at.slice(0,10), end: data.ends_at.slice(0,10), status: "Upcoming" }]);
+      setPeriodDialog(false); setToast("Evaluation period saved."); event.currentTarget.reset();
+    });
   }
 
   function changePage(nextPage: string) {
     setPage(nextPage as Page);
-    setSelectedTeacher(null);
     setMobileNavOpen(false);
     setSearch("");
   }
@@ -163,13 +195,13 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         <div className="content">
           {page === "Overview" && <>
             <section className="page-heading">
-              <div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL YEAR 2026–2027 <span>·</span> FIRST SEMESTER</p><h1>Good morning, {firstName} <span className="heading__spark">✳</span></h1><p className="page-heading__description">A clear view of participation and faculty feedback across OLOPSC.</p></div>
+              <div><p className="eyebrow"><span className="eyebrow__dot" /> {periods.find((period) => period.id === selectedPeriodId)?.schoolYear ?? "SCHOOL EVALUATIONS"} <span>·</span> {periods.find((period) => period.id === selectedPeriodId)?.semester ?? "ALL PERIODS"}</p><h1>Good morning, {firstName} <span className="heading__spark">✳</span></h1><p className="page-heading__description">{periods.find((period) => period.id === selectedPeriodId)?.name ?? "A live view of participation and faculty feedback across OLOPSC."}</p></div>
               <button className="button button--primary" type="button" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button>
             </section>
             <section className="metric-grid" aria-label="Evaluation overview">
-              <Metric title="Total teachers" value="128" icon="♙" note="Across 3 academic programs" trend="+8 this year" />
-              <Metric title="Eligible students" value="2,458" icon="♧" note="Students assigned to courses" trend="AY 2026–2027" />
-              <article className="metric-card"><div className="metric-card__top"><span>Submissions received</span><span className="metric-icon">✓</span></div><p className="metric-card__value">{submitted.toLocaleString()} <span className="metric-card__total">/ 2,458</span></p><Progress value={participation} light /><div className="metric-card__footer"><span>{participation}% participation</span><span className="trend">In progress</span></div></article>
+              <Metric title="Faculty assignments" value={String(teachers.length)} icon="♙" note="From assigned course roster" trend="Live data" />
+              <Metric title="Eligible students" value={totalEligible.toLocaleString()} icon="♧" note="Students enrolled for periods" trend="Live data" />
+              <article className="metric-card"><div className="metric-card__top"><span>Submissions received</span><span className="metric-icon">✓</span></div><p className="metric-card__value">{submitted.toLocaleString()} <span className="metric-card__total">/ {totalEligible.toLocaleString()}</span></p><Progress value={participation} light /><div className="metric-card__footer"><span>{participation}% participation</span><span className="trend">{loading ? "Loading" : "Live data"}</span></div></article>
               <Metric title="Participation target" value="90%" icon="◎" note={`${Math.max(0, Math.ceil(totalEligible * 0.9 - submitted)).toLocaleString()} more submissions to reach target`} trend="School goal" />
             </section>
             <section className="overview-grid">
@@ -178,34 +210,21 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
               </article>
               <article className="panel activity-panel"><div className="panel-heading"><div><h2>Recent activity</h2><p>Latest updates in your workspace</p></div><span className="live-indicator"><i /> Live</span></div><div className="activity-list"><Activity icon="♙" title="Faculty roster is ready" detail="128 teachers across 3 programs" time="Today" /><Activity icon="✓" tone="green" title="Midterm evaluation is open" detail="Students can submit course feedback" time="Nov 2" /><Activity icon="▣" tone="gold" title="Evaluation criteria reviewed" detail="5 teaching practices in this form" time="Oct 30" /></div></article>
             </section>
-            <ProgramTable />
-            <section className="quick-actions"><strong>Quick actions</strong><button onClick={() => changePage("Teachers")}>♙ &nbsp;Browse teachers <span className="quick-actions__plus">→</span></button><button onClick={() => changePage("Evaluate faculty")}>✓ &nbsp;Start an evaluation <span className="quick-actions__plus">→</span></button><button onClick={() => setPeriodDialog(true)}>◷ &nbsp;Open a new period <span className="quick-actions__plus">＋</span></button></section>
+            <ProgramTable programs={programStats} />
+            <section className="quick-actions"><strong>Quick actions</strong><button onClick={() => changePage("Teachers")}>♙ &nbsp;Browse teachers <span className="quick-actions__plus">→</span></button><button onClick={() => setPeriodDialog(true)}>◷ &nbsp;Open a new period <span className="quick-actions__plus">＋</span></button></section>
           </>}
-
-          {page === "Evaluate faculty" && <section className="subpage">
-            <div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> STUDENT WORKSPACE</p><h1>{selectedTeacher ? "Evaluate your teacher" : "Your course evaluations"}</h1><p className="page-heading__description">Share thoughtful feedback about the courses you are taking this semester.</p></div><span className="status status--active">Midterm period open</span></div>
-            <div className="notice notice--info"><span>ⓘ</span><p>This is a working prototype. Submissions stay in this browser session and are not sent to the school.</p></div>
-            {selectedTeacher ? <article className="panel evaluation-card">
-              <button className="text-link back-link" type="button" onClick={() => setSelectedTeacher(null)}>← Back to course list</button>
-              <div className="teacher-heading"><span className="avatar avatar--large">{selectedTeacher.initials}</span><div><h2>{selectedTeacher.name}</h2><p>{selectedTeacher.course} · {selectedTeacher.program}</p></div><span className="step-indicator">1 <span>/</span> 2</span></div>
-              <div className="form-divider" /><h3>Teaching and learning</h3><p className="section-copy">Rate each statement based on your experience in this course.</p>
-              <form onSubmit={submitEvaluation}>
-                {criteria.map((criterion, index) => <fieldset className="rating-field" key={criterion}><legend><span>{String(index + 1).padStart(2, "0")}</span>{criterion}</legend><div className="rating-options" aria-label={`Rating for ${criterion}`}>{[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" className={`rating-option ${ratings[index] === score ? "is-selected" : ""}`} aria-pressed={ratings[index] === score} onClick={() => setRatings((current) => ({ ...current, [index]: score }))}><strong>{score}</strong><small>{["Needs work", "Fair", "Good", "Very good", "Excellent"][score - 1]}</small></button>)}</div></fieldset>)}
-                <label className="comment-field">Additional comments <span>Optional</span><textarea name="comment" rows={4} placeholder="Share a specific example or suggestion that could help this teacher..." /></label>
-                <div className="form-actions"><button className="button button--secondary" type="button" onClick={() => setSelectedTeacher(null)}>Save for later</button><button className="button button--primary" type="submit">Submit evaluation <span>→</span></button></div>
-              </form>
-            </article> : <div className="course-grid">{filteredTeachers.map((teacher) => <article className="panel course-card" key={teacher.id}><div className="course-card__top"><span className="avatar avatar--large">{teacher.initials}</span><span className="status status--active">Ready</span></div><p className="course-card__program">{teacher.program}</p><h2>{teacher.course}</h2><p className="course-card__teacher">{teacher.name} <span>·</span> {teacher.role}</p><div className="course-card__footer"><span>Midterm evaluation</span><button className="button button--primary button--small" onClick={() => openEvaluation(teacher)}>Start <span>→</span></button></div></article>)}</div>}
-          </section>}
 
           {page === "Evaluation periods" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> ACADEMIC YEAR 2026–2027</p><h1>Evaluation periods</h1><p className="page-heading__description">Plan and monitor the feedback cycles for your school.</p></div><button className="button button--primary" onClick={() => setPeriodDialog(true)}>＋ <span>New evaluation period</span></button></div><div className="periods-list">{periods.map((period, index) => <article className="panel period-card" key={period.id}><div className={`period-card__calendar ${period.status === "Active" ? "period-card__calendar--active" : ""}`}><strong>{dateParts(period.start).day}</strong><span>{dateParts(period.start).month.toUpperCase()}</span></div><div className="period-card__main"><div className="period-row__title"><h2>{period.name}</h2><span className={`status ${period.status === "Active" ? "status--active" : "status--upcoming"}`}>{period.status}</span></div><p>{period.semester} · AY {period.schoolYear} · All academic programs</p><small>{formatDate(period.start)} – {formatDate(period.end)}, {period.schoolYear.split("–")[0]}</small>{index === 0 && <><div className="progress-caption"><span>Student participation</span><strong>{participation}%</strong></div><Progress value={participation} /></>}</div><button className="row-action" type="button" aria-label={`Open ${period.name}`} onClick={() => setToast(`${period.name} details selected.`)}>›</button></article>)}</div></section>}
 
-          {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty linked to courses in this evaluation cycle.</p></div><button className="button button--secondary" onClick={() => setToast("Teacher management can be connected to the school directory.")}>＋ <span>Add teacher</span></button></div><DirectoryTable search={search} /></section>}
+          {page === "Teachers" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Teachers</h1><p className="page-heading__description">Faculty assignments grouped by course and enrolled student year level.</p></div></div><DirectoryTable search={search} teachers={teachers} /></section>}
 
-          {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">Review participation by academic program.</p></div><button className="button button--secondary" onClick={() => setToast("Student records can be imported from the school directory.")}>＋ <span>Import students</span></button></div><ProgramTable /><div className="notice notice--info"><span>ⓘ</span><p>Student names and records are not included in this prototype. Connect the school’s student information system before inviting students.</p></div></section>}
+          {page === "Students" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> SCHOOL DIRECTORY</p><h1>Students</h1><p className="page-heading__description">Review participation by academic program.</p></div></div><ProgramTable programs={programStats} /></section>}
 
-          {page === "Reports" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> MIDTERM EVALUATION</p><h1>Participation report</h1><p className="page-heading__description">A sample view of response coverage across programs.</p></div><button className="button button--secondary" onClick={() => setToast("Report export will be available after a reporting backend is connected.")}>↓ <span>Export report</span></button></div><ProgramTable /><article className="panel report-note"><h2>Reading this report</h2><p>Participation counts show submitted evaluations against eligible students. Individual teacher results should only be released according to school policy and minimum response thresholds.</p></article></section>}
+          {page === "Reports" && <section className="subpage"><div className="page-heading"><div><p className="eyebrow"><span className="eyebrow__dot" /> LIVE EVALUATION DATA</p><h1>Participation report</h1><p className="page-heading__description">Response coverage across programs.</p></div></div><ProgramTable programs={programStats} /><DirectoryTable search={search} teachers={teachers} /></section>}
 
-          <footer className="page-footer"><span>© 2026 OLOPSC · Faculty Evaluation</span><span><i className="page-footer__status" /> Prototype data <b>·</b> School year 2026–2027</span></footer>
+          {dataError && <div className="notice notice--info" role="alert"><span>ⓘ</span><p>{dataError}</p></div>}
+          {loading && <p role="status">Loading live school data…</p>}
+          <footer className="page-footer"><span>© 2026 OLOPSC · Faculty Evaluation</span><span><i className="page-footer__status" /> {loading ? "Loading" : dataError ? "Data unavailable" : "Live school data"}</span></footer>
         </div>
       </main>
 
@@ -228,11 +247,11 @@ function Activity({ icon, title, detail, time, tone = "" }: { icon: string; titl
   return <article className="activity-item"><span className={`activity-item__icon ${tone ? `activity-item__icon--${tone}` : ""}`}>{icon}</span><div><strong>{title}</strong><p>{detail}</p><small>{time}</small></div></article>;
 }
 
-function ProgramTable() {
-  return <section className="panel participation-panel"><div className="panel-heading"><div><h2>Program participation</h2><p>Evaluation coverage by academic program</p></div><span className="status status--active">Midterm</span></div><div className="table-scroll"><table><thead><tr><th>Program</th><th>Eligible students</th><th>Submitted</th><th>Participation</th><th>Status</th></tr></thead><tbody>{programs.map((program) => { const ratio = Math.round((program.submitted / program.eligible) * 100); return <tr key={program.code}><td><div className="program-cell"><span className="program-cell__icon">▤</span><span><strong>{program.name}</strong><small>{program.code}</small></span></div></td><td>{program.eligible}</td><td>{program.submitted}</td><td><div className="table-progress"><Progress value={ratio} /><small>{ratio}%</small></div></td><td><span className={`status ${ratio >= 80 ? "status--active" : "status--progress"}`}>{ratio >= 80 ? "On track" : "In progress"}</span></td></tr>; })}</tbody></table></div></section>;
+function ProgramTable({ programs }: { programs: ProgramStats[] }) {
+  return <section className="panel participation-panel"><div className="panel-heading"><div><h2>Program participation</h2><p>Eligible enrollment and submitted evaluations by program</p></div></div><div className="table-scroll"><table><thead><tr><th>Program</th><th>Eligible enrollments</th><th>Submitted</th><th>Participation</th><th>Status</th></tr></thead><tbody>{programs.map((program) => { const ratio = program.eligible ? Math.round((program.submitted / program.eligible) * 100) : 0; return <tr key={program.code}><td><div className="program-cell"><span className="program-cell__icon">▤</span><span><strong>{program.name}</strong><small>{program.code}</small></span></div></td><td>{program.eligible}</td><td>{program.submitted}</td><td><div className="table-progress"><Progress value={ratio} /><small>{ratio}%</small></div></td><td><span className={`status ${ratio >= 80 ? "status--active" : "status--progress"}`}>{ratio >= 80 ? "On track" : "In progress"}</span></td></tr>; })}</tbody></table>{!programs.length && <p className="empty-state">No enrollment records are available.</p>}</div></section>;
 }
 
-function DirectoryTable({ search }: { search: string }) {
-  const visible = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
-  return <section className="panel directory-panel"><div className="directory-panel__summary"><strong>{visible.length} teachers</strong><span>Assigned for the active semester</span></div><div className="table-scroll"><table><thead><tr><th>Teacher</th><th>Program</th><th>Assigned course</th><th>Evaluation status</th></tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.id}><td><div className="program-cell"><span className="avatar">{teacher.initials}</span><span><strong>{teacher.name}</strong><small>{teacher.role}</small></span></div></td><td>{teacher.program}</td><td>{teacher.course}</td><td><span className="status status--active">{teacher.evaluations}% responses</span></td></tr>)}</tbody></table>{visible.length === 0 && <p className="empty-state">No teachers match “{search}”.</p>}</div></section>;
+function DirectoryTable({ search, teachers }: { search: string; teachers: Teacher[] }) {
+  const visible = teachers.filter((teacher) => `${teacher.name} ${teacher.program} ${teacher.yearLevel} ${teacher.course}`.toLowerCase().includes(search.toLowerCase()));
+  return <section className="panel directory-panel"><div className="directory-panel__summary"><strong>{visible.length} faculty assignments</strong><span>Grouped by course and student year level</span></div><div className="table-scroll"><table><thead><tr><th>Teacher</th><th>Program</th><th>Year level</th><th>Assigned course</th><th>Evaluation status</th></tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.id}><td><div className="program-cell"><span className="avatar">{teacher.initials}</span><span><strong>{teacher.name}</strong><small>{teacher.role}</small></span></div></td><td>{teacher.program}</td><td>{teacher.yearLevel}</td><td>{teacher.course}</td><td><span className="status status--active">{teacher.evaluations}% responses</span></td></tr>)}</tbody></table>{visible.length === 0 && <p className="empty-state">No faculty assignments match “{search}”.</p>}</div></section>;
 }
