@@ -42,14 +42,15 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
           if (enrollmentError) throw enrollmentError;
           const courseRows = (enrollments ?? []).map((row: any) => row.courses).filter(Boolean);
           const courseIds = courseRows.map((course: any) => course.id);
-          const [professorResult, directoryInstructorResult, criterionResult, submissionResult, programNamesResult] = await Promise.all([
+          const [professorResult, directoryInstructorResult, criterionResult, submissionResult, programNamesResult, draftResult] = await Promise.all([
             courseIds.length ? supabase.from("course_professors").select("course_id, professor_id, profiles(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
             courseIds.length ? supabase.from("course_instructors").select("course_id, instructors(full_name)").in("course_id", courseIds) : Promise.resolve({ data: [], error: null }),
-            supabase.from("evaluation_criteria").select("id, prompt, section").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
+            supabase.from("evaluation_criteria").select("id, prompt, section, survey_group").eq("period_id", period.id).eq("is_active", true).order("sort_order"),
             supabase.from("evaluation_submissions").select("course_id").eq("student_id", user.id).eq("period_id", period.id),
             supabase.from("programs").select("id, name, department"),
+            supabase.from("evaluation_drafts").select("course_id, ratings, comment, comment_anonymous, updated_at").eq("student_id", user.id).eq("period_id", period.id),
           ]);
-          if (professorResult.error || directoryInstructorResult.error || criterionResult.error || submissionResult.error || programNamesResult.error) throw new Error("Could not load your evaluation schedule.");
+          if (professorResult.error || directoryInstructorResult.error || criterionResult.error || submissionResult.error || programNamesResult.error || draftResult.error) throw new Error("Could not load your evaluation schedule.");
           const instructorsByCourse = new Map<string, string[]>();
           for (const item of professorResult.data ?? []) {
             const person = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
@@ -63,15 +64,17 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
             if (!current.includes(person.full_name)) instructorsByCourse.set(item.course_id, [...current, person.full_name]);
           }
           const programNames = new Map((programNamesResult.data ?? []).map((p: any) => [p.id, [...new Set([p.department, p.name].filter(Boolean))].join(" · ")]));
+          const draftsByCourse = new Map((draftResult.data ?? []).map((draft: any) => [draft.course_id, draft]));
           courses = courseRows.map((course: any) => {
             const teacher = instructorsByCourse.get(course.id)?.join(", ") ?? "Professor not assigned";
-            return { id: course.id, periodId: period.id, course: course.name, code: course.code, teacher, initials: teacher.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase(), program: String(programNames.get(course.program_id) ?? "OLOPSC") };
+            const draft: any = draftsByCourse.get(course.id);
+            return { id: course.id, periodId: period.id, course: course.name, code: course.code, teacher, initials: teacher.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase(), program: String(programNames.get(course.program_id) ?? "OLOPSC"), draftRatings: (draft?.ratings ?? []).map((rating: any) => ({ criterionId: rating.criterion_id ?? rating.criterionId, rating: Number(rating.rating) })), draftComment: draft?.comment ?? "", draftCommentAnonymous: draft?.comment_anonymous ?? true, draftUpdatedAt: draft?.updated_at ?? "" };
           });
-          criteria = criterionResult.data ?? [];
+          criteria = (criterionResult.data ?? []).map((criterion: any) => ({ id: criterion.id, prompt: criterion.prompt, section: criterion.section, surveyGroup: criterion.survey_group }));
           completedCourseIds = (submissionResult.data ?? []).map((row: any) => row.course_id);
         }
         const enrollmentDate = record.enrollment_date ? new Date(`${record.enrollment_date}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : "Not provided";
-        if (active) setAccess({ name: profile.full_name, email: user.email, role: profile.role, studentId: record.school_student_id, enrollmentDate, program: programResult.data ? [...new Set([programResult.data.department, programResult.data.name].filter(Boolean))].join(" · ") : "Program not assigned", yearLevel: record.year_level ?? "Not provided", courses, criteria, completedCourseIds, periodId: period?.id, periodName: period?.name, periodEnd: period?.ends_at, periodIsOpen: period?.is_open, isSupabaseUser: true });
+        if (active) setAccess({ name: profile.full_name, email: user.email, role: profile.role, userId: user.id, studentId: record.school_student_id, enrollmentDate, program: programResult.data ? [...new Set([programResult.data.department, programResult.data.name].filter(Boolean))].join(" · ") : "Program not assigned", yearLevel: record.year_level ?? "Not provided", courses, criteria, completedCourseIds, periodId: period?.id, periodName: period?.name, periodEnd: period?.ends_at, periodIsOpen: period?.is_open, isSupabaseUser: true });
       } catch (error) {
         if (active) setMessage(error instanceof Error ? error.message : "Could not load your school account.");
       }
