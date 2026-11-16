@@ -260,7 +260,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
       <section className="login-story" aria-label="About OLOPSC Faculty Evaluation">
         <div className="login-story__pattern" aria-hidden="true" />
         <a className="login-brand" href="#home" aria-label="OLOPSC Faculty Evaluation home">
-          <span className="login-brand__mark" aria-hidden="true">◇</span>
+          <img className="login-brand__logo" src="/olopsc-bmse-logo.webp" alt="Our Lady Of Perpetual Succor College of Business Management, Science and Education" />
           <span className="login-brand__copy"><strong>OLOPSC</strong><small>FACULTY EVALUATION<br />SYSTEM</small></span>
         </a>
 
@@ -270,15 +270,15 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
           <p>Thoughtful feedback helps our teachers grow and gives every learner a voice in the classroom.</p>
           <div className="login-quote">
             <span className="login-quote__mark" aria-hidden="true">“</span>
-            <div><strong>Make every voice count.</strong><small>A more connected OLOPSC learning community.</small></div>
+            <div><strong>Make every voice count.</strong><small>Our Lady Of Perpetual Succor College of Business Management, Science and Education.</small></div>
           </div>
         </div>
 
-        <div className="login-story__footer"><span>© 2026 OLOPSC</span><span>Empowering better teaching</span></div>
+        <div className="login-story__footer"><span>© 2026 Our Lady Of Perpetual Succor College of Business Management, Science and Education</span><span>Empowering better teaching</span></div>
       </section>
 
       <section className="login-panel" aria-labelledby="login-title">
-        <div className="login-panel__top"><span className="login-panel__school">OLOPSC · SCHOOL YEAR 2026–2027</span><span className="secure-label"><span aria-hidden="true">◈</span> SCHOOL ACCESS</span></div>
+        <div className="login-panel__top"><span className="login-panel__school">Our Lady Of Perpetual Succor College of Business Management, Science and Education · 2026–2027</span><span className="secure-label"><span aria-hidden="true">◈</span> SCHOOL ACCESS</span></div>
         <div className="login-card">
           <div className="login-card__heading"><span className="login-card__icon" aria-hidden="true">↗</span><p className="login-card__eyebrow">WELCOME TO YOUR WORKSPACE</p><h2 id="login-title">{heading}</h2><p>{description}</p></div>
 

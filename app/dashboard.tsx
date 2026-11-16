@@ -158,7 +158,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
     <div className="app-shell">
       <aside className={`sidebar ${mobileNavOpen ? "is-open" : ""}`}>
         <a className="brand" href="#overview" onClick={(event) => { event.preventDefault(); changePage("Overview"); }}>
-          <span className="brand__mark">◇</span>
+          <img className="brand__logo" src="/olopsc-bmse-logo.webp" alt="" />
           <span><strong>OLOPSC</strong><small>FACULTY EVALUATION<br />SYSTEM</small></span>
         </a>
         <div className="workspace-switch"><span className="workspace-switch__icon">◈</span><span><strong>Admin workspace</strong><small>Institution management</small></span><span className="muted">⌄</span></div>

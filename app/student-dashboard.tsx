@@ -122,7 +122,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
     <div className="app-shell student-shell">
       <aside className={`sidebar ${mobileNavOpen ? "is-open" : ""}`}>
         <a className="brand" href="#student-overview" onClick={(event) => { event.preventDefault(); changePage("Overview"); }}>
-          <span className="brand__mark">◇</span>
+          <img className="brand__logo" src="/olopsc-bmse-logo.webp" alt="" />
           <span><strong>OLOPSC</strong><small>FACULTY EVALUATION<br />SYSTEM</small></span>
         </a>
         <div className="workspace-switch"><span className="workspace-switch__icon">♧</span><span><strong>Student workspace</strong><small>{student.program}</small></span><span className="muted">⌄</span></div>
