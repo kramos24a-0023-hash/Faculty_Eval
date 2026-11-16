@@ -123,7 +123,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
       <aside className={`sidebar ${mobileNavOpen ? "is-open" : ""}`}>
         <a className="brand" href="#student-overview" onClick={(event) => { event.preventDefault(); changePage("Overview"); }}>
           <img className="brand__logo" src="/olopsc-bmse-logo.webp" alt="" />
-          <span><strong>OLOPSC</strong><small>FACULTY EVALUATION<br />SYSTEM</small></span>
+          <span className="brand__identity"><strong>Our Lady Of Perpetual Succor College of Business Management, Science and Education</strong><small>FACULTY EVALUATION SYSTEM</small></span>
         </a>
         <div className="workspace-switch"><span className="workspace-switch__icon">♧</span><span><strong>Student workspace</strong><small>{student.program}</small></span><span className="muted">⌄</span></div>
         <nav className="primary-nav" aria-label="Student navigation">

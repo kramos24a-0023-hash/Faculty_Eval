@@ -62,7 +62,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
             const current = instructorsByCourse.get(item.course_id) ?? [];
             if (!current.includes(person.full_name)) instructorsByCourse.set(item.course_id, [...current, person.full_name]);
           }
-          const programNames = new Map((programNamesResult.data ?? []).map((p: any) => [p.id, [p.department, p.name].filter(Boolean).join(" · ")]));
+          const programNames = new Map((programNamesResult.data ?? []).map((p: any) => [p.id, [...new Set([p.department, p.name].filter(Boolean))].join(" · ")]));
           courses = courseRows.map((course: any) => {
             const teacher = instructorsByCourse.get(course.id)?.join(", ") ?? "Professor not assigned";
             return { id: course.id, periodId: period.id, course: course.name, code: course.code, teacher, initials: teacher.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase(), program: String(programNames.get(course.program_id) ?? "OLOPSC") };
@@ -71,7 +71,7 @@ export default function WorkspaceGate({ requiredRole = "admin" }: { requiredRole
           completedCourseIds = (submissionResult.data ?? []).map((row: any) => row.course_id);
         }
         const enrollmentDate = record.enrollment_date ? new Date(`${record.enrollment_date}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : "Not provided";
-        if (active) setAccess({ name: profile.full_name, email: user.email, role: profile.role, studentId: record.school_student_id, enrollmentDate, program: programResult.data ? [programResult.data.department, programResult.data.name].filter(Boolean).join(" · ") : "Program not assigned", yearLevel: record.year_level ?? "Not provided", courses, criteria, completedCourseIds, periodId: period?.id, periodName: period?.name, periodEnd: period?.ends_at, periodIsOpen: period?.is_open, isSupabaseUser: true });
+        if (active) setAccess({ name: profile.full_name, email: user.email, role: profile.role, studentId: record.school_student_id, enrollmentDate, program: programResult.data ? [...new Set([programResult.data.department, programResult.data.name].filter(Boolean))].join(" · ") : "Program not assigned", yearLevel: record.year_level ?? "Not provided", courses, criteria, completedCourseIds, periodId: period?.id, periodName: period?.name, periodEnd: period?.ends_at, periodIsOpen: period?.is_open, isSupabaseUser: true });
       } catch (error) {
         if (active) setMessage(error instanceof Error ? error.message : "Could not load your school account.");
       }
