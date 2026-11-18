@@ -36,3 +36,8 @@ For production email delivery, enable custom SMTP in **Authentication → SMTP S
 The initial administrator at `kramos24a-0023@olopsc.edu.ph` is assigned the admin role automatically. Personal-email administrators must be added to the private allowlist before creating their user in Supabase Dashboard under **Authentication → Users → Add user**. They receive the admin role automatically; the person creating the account enters its password. New OLOPSC accounts default to student until an administrator changes their role.
 
 Keep self-registration disabled in Supabase Auth so school accounts are provisioned by an administrator. The school administrator must populate programs, courses, professor accounts and course assignments, evaluation periods, criteria, and student records/enrollments. These records determine what appears in each account.
+
+## Project defense reference
+
+See [`docs/PROJECT_DEFENSE_REFERENCE.md`](docs/PROJECT_DEFENSE_REFERENCE.md) for the system architecture, technology roles, data model, security and privacy design, password recovery setup, current verification notes, and project-owner acceptance steps.
+

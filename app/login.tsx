@@ -229,9 +229,7 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
       router.push(route);
     } catch (error) {
       setMessage(isRequestingReset
-        ? error instanceof Error
-          ? `We couldn’t reach Supabase to send the reset email: ${error.message}`
-          : "We couldn’t reach Supabase to send the reset email. Check your connection and try again."
+        ? "We couldn’t reach the password reset service. Check your connection and try again."
         : isPasswordReset
         ? "We couldn’t reset your password. Please try again or request a new reset email."
         : "We couldn’t reach the sign-in service. Please try again in a moment.");
@@ -311,7 +309,6 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
                 </label>
               </>}
               {!isPasswordReset && !isRequestingReset && <div className="login-form__options">
-                {!isChangingPassword && <label className="remember-option"><input type="checkbox" name="remember" /> <span>Remember this device</span></label>}
                 <div className="login-form__links">
                   {!isChangingPassword && <button className="login-text-button" type="button" onClick={() => { setMessage(""); setIsChangingPassword(false); setIsRequestingReset(true); setNewPassword(""); setConfirmPassword(""); }}>Forgot password?</button>}
                   <button className="login-text-button" type="button" onClick={() => { setMessage(""); if (isChangingPassword) returnToSignIn(); else { setIsRequestingReset(false); setIsChangingPassword(true); setNewPassword(""); setConfirmPassword(""); } }}>{isChangingPassword ? "Back to sign in" : "Change password"}</button>
@@ -330,3 +327,4 @@ export default function LoginPage({ isPasswordReset = false, initialMessage = ""
     </main>
   );
 }
+

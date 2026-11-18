@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
 
+function redirectWithoutCaching(request: NextRequest, path: string) {
+  const response = NextResponse.redirect(new URL(path, request.url));
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
@@ -12,14 +19,15 @@ export async function GET(request: NextRequest) {
 
     if (tokenHash && type === "recovery") {
       const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
-      if (!error) return NextResponse.redirect(new URL("/reset-password", request.url));
+      if (!error) return redirectWithoutCaching(request, "/reset-password");
     } else if (code) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (!error) return NextResponse.redirect(new URL("/reset-password", request.url));
+      if (!error) return redirectWithoutCaching(request, "/reset-password");
     }
   } catch {
     // Return a clear recovery error instead of exposing an unhandled callback failure.
   }
 
-  return NextResponse.redirect(new URL("/reset-password?error=invalid-link", request.url));
+  return redirectWithoutCaching(request, "/reset-password?error=invalid-link");
 }
+
