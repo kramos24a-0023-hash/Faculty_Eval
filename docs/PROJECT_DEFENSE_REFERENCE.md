@@ -184,7 +184,7 @@ The live snapshot on November 18, 2026 showed 3 programs, 3 profiles, 1 student 
 
 The survey criteria can be grouped into sections and assigned to individual courses, allowing different subjects taught by the same professor to have their own survey. Ratings are integers from 1 to 5. A course result is the arithmetic mean of its submitted item ratings. The professor's overall average for a period is the mean of the course-level results that have actually been submitted. Unsubmitted courses do not contribute a score. For example, if two course averages are 3.5 and 4.9, the combined average is `(3.5 + 4.9) / 2 = 4.2`.
 
-The faculty directory's per-subject grade uses that same course-level result and appears only when at least one completed survey has rating data for that course. For example, the course row may show `4.20 / 5` while the professor's combined average includes that result along with other subjects that have submitted surveys. These averages are calculated in the admin dashboard from submission/rating rows; the database does not store a separate grade column.
+The faculty directory's per-subject grade uses that same course-level result and appears only when at least one completed survey has rating data for that course. For example, the course row may show `4.20 / 5` while the professor's combined average includes that result along with other subjects that have submitted surveys. These averages are calculated in the admin dashboard from submission/rating rows; the database does not store a separate grade column. The live database currently has one course with a submitted result: SDF104, averaging `3.73 / 5` from 44 item ratings. The other six current courses have no result, so their directory rows do not show a grade yet.
 
 ### Database functions and triggers
 
@@ -234,7 +234,8 @@ The Performance Advisor also listed 8 unindexed foreign keys, 2 unused indexes, 
 
 - Local repository was on `main` and had no unrelated user changes before the current changes.
 - GitHub repository and connected account matched `kramos24a-0023-hash/Faculty_Eval`.
-- At the start of this review, Vercel reported the prior production deployment as READY for GitHub `main` commit `31c46fdb7c59dfce6b3567685b3326f14b568052`. The subject-grade directory change in this update must be verified against the Vercel build created from its new main commit.
+- The subject-grade directory and expanded system documentation were pushed to GitHub `main` at commit `7f4707c0d25a895457189e785e37eecf2fbc19ca`; Vercel reported its production deployment as READY.
+- A read-only per-course aggregate verified the new display case: SDF104 has one submission and 44 ratings with a `3.73 / 5` average; the other six current courses have zero submissions.
 - Supabase project `Faculty_Eval` was active; its migration list matched the repository.
 - Local code inspection confirmed login, recovery, callback, student, administrator, and professor routes, plus the absence of a sign-up control or `signUp` call.
 - The live database table inventory and migration history were checked through the Supabase connection. All 14 public tables have RLS enabled; the 2 private allowlist tables do not, but direct client roles currently lack table CRUD grants.
