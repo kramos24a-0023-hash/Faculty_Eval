@@ -378,6 +378,7 @@ button { font-family: inherit; }
 .sample-access-list { display: grid; gap: 8px; margin-top: 18px; }
 .sample-access-list .sample-access { margin-top: 0; }
 .student-year { color: #8190a7; font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+.workspace-logout { flex: 0 0 auto; white-space: nowrap; font-weight: 800; }
 .student-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 220px; align-items: center; gap: 22px; margin-bottom: 17px; padding: 27px 31px; overflow: hidden; border: 1px solid rgb(255 255 255 / 18%); border-radius: 14px; background: linear-gradient(122deg, #123a83 0%, #1749a7 75%, #2158b7 100%); color: #fff; }
 .student-welcome .eyebrow { color: #f6d778; }
 .student-welcome h1 { margin: 15px 0 8px; color: #fff; font: 750 clamp(25px, 2.5vw, 34px)/1.15 var(--font-display); letter-spacing: -1px; }

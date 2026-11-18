@@ -328,7 +328,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         </nav>
         <div className="sidebar__bottom">
           <div className="help-card"><span className="help-card__icon">?</span><span><strong>Need a hand?</strong><small>Help for your workspace</small></span><span className="muted">↗</span></div>
-          <div className="user-profile"><span className="avatar avatar--sidebar">{adminInitials}</span><span><strong>{adminName}</strong><small>System admin</small></span><button className="icon-button icon-button--sidebar" type="button" aria-label="Log out" title="Log out" onClick={() => onLogout?.()}>↪</button></div>
+          <div className="user-profile"><span className="avatar avatar--sidebar">{adminInitials}</span><span><strong>{adminName}</strong><small>System admin</small></span></div>
         </div>
       </aside>
 
@@ -340,6 +340,7 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
             <label className="search-box"><span className="search-box__icon">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search teachers, courses..." aria-label="Search teachers and courses" /><kbd>Ctrl K</kbd></label>
             <button className="icon-button notification-button" type="button" aria-label="Notifications" onClick={() => setToast("You’re all caught up on notifications.")}>♧<span className="notification-button__dot" /></button>
             <span className="avatar" aria-label={adminName}>{adminInitials}</span>
+            <button className="button button--secondary button--small workspace-logout" type="button" aria-label="Log out of admin workspace" onClick={() => onLogout?.()}>Log out</button>
           </div>
         </header>
 

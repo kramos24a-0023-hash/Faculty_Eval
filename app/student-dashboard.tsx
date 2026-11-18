@@ -255,7 +255,7 @@ export default function StudentDashboard({ student, onLogout }: { student: Stude
         <header className="topbar">
           <button className="mobile-menu" type="button" aria-label="Toggle navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}>☰</button>
           <div className="breadcrumb"><span>Student workspace</span><span aria-hidden="true">/</span><strong>{selectedCourse ? "Your evaluation" : page}</strong></div>
-          <div className="top-actions"><span className="student-year">SCHOOL YEAR 2026–2027</span><span className="avatar" aria-label={student.name}>AR</span><button className="button button--secondary button--small student-logout" type="button" onClick={onLogout}>Log out</button></div>
+          <div className="top-actions"><span className="student-year">SCHOOL YEAR 2026–2027</span><span className="avatar" aria-label={student.name}>AR</span><button className="button button--secondary button--small workspace-logout" type="button" aria-label="Log out of student workspace" onClick={onLogout}>Log out</button></div>
         </header>
 
         <div className="content">
@@ -390,3 +390,4 @@ function StudentCourseCard({ course, complete, draft, questionCount, onStart }: 
 function ProfileDetail({ label, value }: { label: string; value: string }) {
   return <div className="student-profile-detail"><small>{label}</small><strong>{value}</strong></div>;
 }
+
