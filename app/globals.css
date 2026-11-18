@@ -204,6 +204,10 @@ button { font-family: inherit; }
 .faculty-assignment-list { display: grid; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid #d7ac32; background: #efc64b; }
 .faculty-assignment { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; border: 1px solid #d7ac32; border-radius: 7px; background: #e6b932; color: #103578; }
 .faculty-assignment > div { display: grid; gap: 4px; }
+.faculty-assignment > .faculty-assignment-metrics { display: flex; align-items: center; justify-content: flex-end; gap: 18px; text-align: right; }
+.faculty-assignment .faculty-assignment-grade { display: grid; gap: 2px; color: #103578; font-size: 12px; }
+.faculty-assignment .faculty-assignment-grade span { color: #103578; font-size: 17px; font-weight: 850; }
+.faculty-assignment .faculty-assignment-grade small { color: #274b84; font-size: 11px; }
 .faculty-assignment strong { font-size: 14px; font-weight: 800; }
 .faculty-assignment small, .faculty-assignment-response { color: #274b84; font-size: 13px; font-weight: 700; }
 .faculty-results-link { justify-self: start; margin-top: 3px; }
@@ -218,6 +222,7 @@ button { font-family: inherit; }
   .faculty-program-count { max-width: 46%; font-size: 12px; }
   .faculty-professor-name strong { font-size: 14px; }
   .faculty-assignment { align-items: flex-start; flex-direction: column; }
+  .faculty-assignment > .faculty-assignment-metrics { width: 100%; align-items: flex-start; justify-content: space-between; text-align: left; }
 }
 
 .questionnaire-manager { padding: clamp(18px, 3vw, 32px); }

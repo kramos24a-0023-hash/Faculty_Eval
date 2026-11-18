@@ -5,7 +5,7 @@ import { createClient } from "../lib/supabase/client";
 import QuestionnaireManager from "./questionnaire-manager";
 
 type Page = "Overview" | "Evaluation periods" | "Subject questionnaires" | "Teachers" | "Students" | "Faculty results";
-type Teacher = { id: string; name: string; role: string; program: string; yearLevel: string; course: string; initials: string; evaluations: number };
+type Teacher = { id: string; name: string; role: string; program: string; yearLevel: string; course: string; initials: string; evaluations: number; subjectAverage?: number; subjectResponses: number };
 type Period = { id: string; name: string; semester: string; schoolYear: string; start: string; end: string; status: "Active" | "Upcoming" | "Closed" };
 type ProgramStats = { name: string; code: string; eligible: number; submitted: number };
 type TeacherQuestionScore = { prompt: string; section: string; course: string; average: number | null; responses: number };
@@ -183,11 +183,10 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
             const responseIds = new Set(submissions.filter((s: any) => s.course_id === course.id).map((s: any) => s.student_id));
             const responses = eligibleIds.filter((id) => responseIds.has(id)).length;
             const key = `${teacherName}|${programLabel}|${year}|${course.id}`;
-            grouped.set(key, { id: key, name: teacherName, role: "Faculty", program: programLabel, yearLevel: year, course: `${course.code} · ${course.name}`, initials: teacherName.split(/\s+/).slice(0,2).map((p: string)=>p[0]).join("").toUpperCase(), evaluations: eligible ? Math.round(responses / eligible * 100) : 0 });
+            grouped.set(key, { id: key, name: teacherName, role: "Faculty", program: programLabel, yearLevel: year, course: `${course.code} · ${course.name}`, initials: teacherName.split(/\s+/).slice(0,2).map((p: string)=>p[0]).join("").toUpperCase(), evaluations: eligible ? Math.round(responses / eligible * 100) : 0, subjectResponses: 0 });
           }
         }
       }
-      setTeachers([...grouped.values()]);
       const periodSubmissions = (submissionResult.data ?? []).filter((s: any) => s.period_id === activePeriodId);
       const submissionIds = new Set(periodSubmissions.map((s: any) => s.id));
       const periodCriteria = (criteriaResult.data ?? []).filter((item: any) => item.period_id === activePeriodId);
@@ -265,6 +264,11 @@ export default function Dashboard({ onLogout, adminName = "Maria Clara" }: { onL
         }))
         .sort((a, b) => b.average - a.average || b.responses - a.responses || a.name.localeCompare(b.name));
       setTeacherRankings(computedRankings);
+      const rankingByName = new Map(computedRankings.map((ranking) => [ranking.name, ranking]));
+      setTeachers([...grouped.values()].map((assignment) => {
+        const subjectGrade = rankingByName.get(assignment.name)?.subjectGrades.find((grade) => grade.course === assignment.course);
+        return { ...assignment, subjectAverage: subjectGrade?.average, subjectResponses: subjectGrade?.responses ?? 0 };
+      }));
       setDataError(""); setLoading(false);
     }
     void loadDashboard();
@@ -428,7 +432,7 @@ function DirectoryTable({ search, teachers, onViewResults }: { search: string; t
           const initials = assignments[0]?.initials ?? name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
           return <details className="faculty-professor-group" key={`${program}-${name}`} open={expandMatches}>
             <summary><span className="avatar">{initials}</span><span className="faculty-professor-name"><strong>{name}</strong><small>{assignments.length} course and year {assignments.length === 1 ? "assignment" : "assignments"}</small></span><span className="faculty-professor-chevron" aria-hidden="true">⌄</span></summary>
-            <div className="faculty-assignment-list">{assignments.sort((a, b) => a.course.localeCompare(b.course) || a.yearLevel.localeCompare(b.yearLevel)).map((assignment) => <article className="faculty-assignment" key={assignment.id}><div><strong>{assignment.course}</strong><small>{assignment.yearLevel}</small></div><span className="faculty-assignment-response">{assignment.evaluations}% response rate</span></article>)}
+            <div className="faculty-assignment-list">{assignments.sort((a, b) => a.course.localeCompare(b.course) || a.yearLevel.localeCompare(b.yearLevel)).map((assignment) => <article className="faculty-assignment" key={assignment.id}><div><strong>{assignment.course}</strong><small>{assignment.yearLevel}</small></div><div className="faculty-assignment-metrics"><span className="faculty-assignment-response">{assignment.evaluations}% response rate</span>{assignment.subjectAverage !== undefined && <strong className="faculty-assignment-grade">Subject grade <span>{assignment.subjectAverage.toFixed(2)} / 5</span><small>{assignment.subjectResponses} {assignment.subjectResponses === 1 ? "survey result" : "survey results"}</small></strong>}</div></article>)}
               {onViewResults && <button className="button button--primary faculty-results-link" type="button" onClick={() => onViewResults(name)}>View professor results →</button>}
             </div>
           </details>;
@@ -504,3 +508,4 @@ function StudentRosterTable({ search, periodName, students, programs }: { search
     </div>
   </section>;
 }
+
